@@ -1,21 +1,24 @@
 <script setup lang="ts">
 import type { TableColumn } from "@nuxt/ui";
 import { upperFirst } from "scule";
-import type { Row } from "@tanstack/table-core";
-import type { User } from "~/types";
 import { normalizeLaravelPaginated } from "~/services/shared/pagination";
+
+type PatientRow = {
+  id: number;
+  name: string;
+  email: string;
+  phone?: string | null;
+  patient_profile?: { gender?: string | null; birth_date?: string | null } | null;
+};
 
 const UAvatar = resolveComponent("UAvatar");
 const UButton = resolveComponent("UButton");
-const UBadge = resolveComponent("UBadge");
 const UDropdownMenu = resolveComponent("UDropdownMenu");
-const UCheckbox = resolveComponent("UCheckbox");
 
 const toast = useToast();
 const table = useTemplateRef("table");
 
 const columnVisibility = ref();
-const rowSelection = ref({});
 
 const pagination = reactive({
   page: 1,
@@ -24,14 +27,12 @@ const pagination = reactive({
   lastPage: 1,
 });
 
-const statusFilter = ref("all");
 const searchEmail = ref("");
 
 const query = computed(() => ({
   page: pagination.page,
   per_page: pagination.perPage,
   search: searchEmail.value?.trim() || undefined,
-  status: statusFilter.value !== "all" ? statusFilter.value : undefined,
 }));
 
 const {
@@ -43,8 +44,8 @@ const {
   query,
 });
 
-const rows = computed<User[]>(() => {
-  const normalized = normalizeLaravelPaginated<User>(res.value?.data);
+const rows = computed<PatientRow[]>(() => {
+  const normalized = normalizeLaravelPaginated<PatientRow>(res.value?.data);
   if (normalized.meta) {
     pagination.page = normalized.meta.current_page;
     pagination.perPage = normalized.meta.per_page;
@@ -56,24 +57,23 @@ const rows = computed<User[]>(() => {
 
 async function goToPage(page: number) {
   pagination.page = page;
-  rowSelection.value = {};
   await refresh();
 }
 
-function getRowItems(row: Row<User>) {
+function getRowItems(row: { original: PatientRow }) {
   return [
     {
       type: "label",
-      label: "Actions",
+      label: "Aksi",
     },
     {
-      label: "Copy customer ID",
+      label: "Salin ID Pasien",
       icon: "i-lucide-copy",
       onSelect() {
         navigator.clipboard.writeText(row.original.id.toString());
         toast.add({
-          title: "Copied to clipboard",
-          description: "Customer ID copied to clipboard",
+          title: "Disalin",
+          description: "ID pasien disalin ke clipboard",
         });
       },
     },
@@ -81,70 +81,27 @@ function getRowItems(row: Row<User>) {
       type: "separator",
     },
     {
-      label: "View customer details",
+      label: "Lihat Detail Pasien",
       icon: "i-lucide-list",
       onSelect() {
         navigateTo(`/patients/${row.original.id}`);
       },
     },
-    {
-      label: "View customer payments",
-      icon: "i-lucide-wallet",
-    },
-    {
-      type: "separator",
-    },
-    {
-      label: "Delete customer",
-      icon: "i-lucide-trash",
-      color: "error",
-      onSelect() {
-        toast.add({
-          title: "Customer deleted",
-          description: "The customer has been deleted.",
-        });
-      },
-    },
   ];
 }
 
-const columns: TableColumn<User>[] = [
-  {
-    id: "select",
-    header: ({ table }) =>
-      h(UCheckbox, {
-        modelValue: table.getIsSomePageRowsSelected()
-          ? "indeterminate"
-          : table.getIsAllPageRowsSelected(),
-        "onUpdate:modelValue": (value: boolean | "indeterminate") =>
-          table.toggleAllPageRowsSelected(!!value),
-        ariaLabel: "Select all",
-      }),
-    cell: ({ row }) =>
-      h(UCheckbox, {
-        modelValue: row.getIsSelected(),
-        "onUpdate:modelValue": (value: boolean | "indeterminate") =>
-          row.toggleSelected(!!value),
-        ariaLabel: "Select row",
-      }),
-  },
+const columns: TableColumn<PatientRow>[] = [
   {
     accessorKey: "id",
     header: "ID",
   },
   {
     accessorKey: "name",
-    header: "Name",
+    header: "Nama",
     cell: ({ row }) => {
       return h("div", { class: "flex items-center gap-3" }, [
-        h(UAvatar, {
-          ...row.original.avatar,
-          size: "lg",
-        }),
-        h("div", undefined, [
-          h("p", { class: "font-medium text-highlighted" }, row.original.name),
-          h("p", { class: "" }, `@${row.original.name}`),
-        ]),
+        h(UAvatar, { alt: row.original.name, size: "lg" }),
+        h("p", { class: "font-medium text-highlighted" }, row.original.name),
       ]);
     },
   },
@@ -168,26 +125,18 @@ const columns: TableColumn<User>[] = [
     },
   },
   {
-    accessorKey: "location",
-    header: "Location",
-    cell: ({ row }) => row.original.location || "-",
+    accessorKey: "phone",
+    header: "No. HP",
+    cell: ({ row }) => row.original.phone || "-",
   },
   {
-    accessorKey: "status",
-    header: "Status",
-    filterFn: "equals",
+    id: "gender",
+    header: "Jenis Kelamin",
     cell: ({ row }) => {
-      const color = {
-        subscribed: "success" as const,
-        unsubscribed: "error" as const,
-        bounced: "warning" as const,
-      }[row.original.status];
-
-      return h(
-        UBadge,
-        { class: "capitalize", variant: "subtle", color },
-        () => row.original.status,
-      );
+      const gender = row.original.patient_profile?.gender;
+      if (gender === "male") return "Laki-laki";
+      if (gender === "female") return "Perempuan";
+      return "-";
     },
   },
   {
@@ -217,17 +166,10 @@ const columns: TableColumn<User>[] = [
   },
 ];
 
-watch(statusFilter, async () => {
-  pagination.page = 1;
-  rowSelection.value = {};
-  await refresh();
-});
-
 watchDebounced(
   searchEmail,
   async () => {
     pagination.page = 1;
-    rowSelection.value = {};
     await refresh();
   },
   { debounce: 400, maxWait: 1200 },
@@ -235,15 +177,11 @@ watchDebounced(
 </script>
 
 <template>
-  <UDashboardPanel id="customers">
+  <UDashboardPanel id="patients">
     <template #header>
-      <UDashboardNavbar title="Customers">
+      <UDashboardNavbar title="Pasien">
         <template #leading>
           <UDashboardSidebarCollapse />
-        </template>
-
-        <template #right>
-          <CustomersAddModal />
         </template>
       </UDashboardNavbar>
     </template>
@@ -258,41 +196,6 @@ watchDebounced(
         />
 
         <div class="flex flex-wrap items-center gap-1.5">
-          <CustomersDeleteModal
-            :count="table?.tableApi?.getFilteredSelectedRowModel().rows.length"
-          >
-            <UButton
-              v-if="table?.tableApi?.getFilteredSelectedRowModel().rows.length"
-              label="Delete"
-              color="error"
-              variant="subtle"
-              icon="i-lucide-trash"
-            >
-              <template #trailing>
-                <UKbd>
-                  {{
-                    table?.tableApi?.getFilteredSelectedRowModel().rows.length
-                  }}
-                </UKbd>
-              </template>
-            </UButton>
-          </CustomersDeleteModal>
-
-          <USelect
-            v-model="statusFilter"
-            :items="[
-              { label: 'All', value: 'all' },
-              { label: 'Subscribed', value: 'subscribed' },
-              { label: 'Unsubscribed', value: 'unsubscribed' },
-              { label: 'Bounced', value: 'bounced' },
-            ]"
-            :ui="{
-              trailingIcon:
-                'group-data-[state=open]:rotate-180 transition-transform duration-200',
-            }"
-            placeholder="Filter status"
-            class="min-w-28"
-          />
           <UDropdownMenu
             :items="
               table?.tableApi
@@ -315,7 +218,7 @@ watchDebounced(
             :content="{ align: 'end' }"
           >
             <UButton
-              label="Display"
+              label="Tampilan"
               color="neutral"
               variant="outline"
               trailing-icon="i-lucide-settings-2"
@@ -327,7 +230,6 @@ watchDebounced(
       <UTable
         ref="table"
         v-model:column-visibility="columnVisibility"
-        v-model:row-selection="rowSelection"
         class="shrink-0"
         :data="rows"
         :columns="columns"
@@ -345,10 +247,7 @@ watchDebounced(
       <div
         class="flex items-center justify-between gap-3 border-t border-default pt-4 mt-auto"
       >
-        <div class="text-sm text-muted">
-          {{ table?.tableApi?.getFilteredSelectedRowModel().rows.length || 0 }}
-          row(s) selected.
-        </div>
+        <div class="text-sm text-muted">Total: {{ pagination.total }} pasien</div>
 
         <div class="flex items-center gap-1.5">
           <UPagination

@@ -1,64 +1,66 @@
 <script setup lang="ts">
-import type { Period, Range, Stat } from '~/types'
+import type { Range, Stat } from '~/types'
+import { getCustomersReport, getOrdersReport, getProfitLossReport } from '~/services/admin/reports'
+import { listPartners } from '~/services/admin/partners'
 
 const props = defineProps<{
-  period: Period
   range: Range
 }>()
 
-function formatCurrency(value: number): string {
-  return value.toLocaleString('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 0
-  })
+function toDateParam(date: Date): string {
+  return date.toISOString().slice(0, 10)
 }
 
-const baseStats = [{
-  title: 'Customers',
-  icon: 'i-lucide-users',
-  minValue: 400,
-  maxValue: 1000,
-  minVariation: -15,
-  maxVariation: 25
-}, {
-  title: 'Conversions',
-  icon: 'i-lucide-chart-pie',
-  minValue: 1000,
-  maxValue: 2000,
-  minVariation: -10,
-  maxVariation: 20
-}, {
-  title: 'Revenue',
-  icon: 'i-lucide-circle-dollar-sign',
-  minValue: 200000,
-  maxValue: 500000,
-  minVariation: -20,
-  maxVariation: 30,
-  formatter: formatCurrency
-}, {
-  title: 'Orders',
-  icon: 'i-lucide-shopping-cart',
-  minValue: 100,
-  maxValue: 300,
-  minVariation: -5,
-  maxVariation: 15
-}]
+const { data: stats } = await useAsyncData<Stat[]>('home-stats', async () => {
+  const from = toDateParam(props.range.start)
+  const to = toDateParam(props.range.end)
 
-const { data: stats } = await useAsyncData<Stat[]>('stats', async () => {
-  return baseStats.map((stat) => {
-    const value = randomInt(stat.minValue, stat.maxValue)
-    const variation = randomInt(stat.minVariation, stat.maxVariation)
+  const [customersRes, ordersRes, profitRes, pendingPartnersRes] = await Promise.all([
+    getCustomersReport({ from, to }),
+    getOrdersReport({ from, to }),
+    getProfitLossReport({ from, to }),
+    listPartners({ verification_status: 'pending', per_page: 1 })
+  ])
 
-    return {
-      title: stat.title,
-      icon: stat.icon,
-      value: stat.formatter ? stat.formatter(value) : value,
-      variation
+  const customers = customersRes.data
+  const orders = ordersRes.data
+  const profit = profitRes.data
+  const pendingPartners = (pendingPartnersRes.data as any)?.total
+    ?? (pendingPartnersRes.data as any)?.meta?.total
+    ?? 0
+
+  return [
+    {
+      title: 'Pasien Baru',
+      icon: 'i-lucide-users',
+      value: customers.new_customers ?? 0,
+      badge: `${customers.total_customers ?? 0} total pasien`,
+      to: '/patients'
+    },
+    {
+      title: 'Pesanan Obat',
+      icon: 'i-lucide-shopping-cart',
+      value: orders.total_orders ?? 0,
+      badge: `${orders.completed_orders ?? 0} selesai`,
+      to: '/orders'
+    },
+    {
+      title: 'Pendapatan',
+      icon: 'i-lucide-circle-dollar-sign',
+      value: formatCurrencyIDR(profit.total_revenue ?? 0),
+      badge: `Laba ${formatCurrencyIDR(profit.net_profit ?? 0)}`,
+      to: '/reports'
+    },
+    {
+      title: 'Mitra Menunggu Verifikasi',
+      icon: 'i-lucide-user-check',
+      value: pendingPartners,
+      badge: pendingPartners > 0 ? 'Perlu ditinjau' : 'Semua terverifikasi',
+      to: '/partners'
     }
-  })
+  ]
 }, {
-  watch: [() => props.period, () => props.range],
+  watch: [() => props.range],
   default: () => []
 })
 </script>
@@ -70,7 +72,7 @@ const { data: stats } = await useAsyncData<Stat[]>('stats', async () => {
       :key="index"
       :icon="stat.icon"
       :title="stat.title"
-      to="/customers"
+      :to="stat.to"
       variant="subtle"
       :ui="{
         container: 'gap-y-1.5',
@@ -85,12 +87,8 @@ const { data: stats } = await useAsyncData<Stat[]>('stats', async () => {
           {{ stat.value }}
         </span>
 
-        <UBadge
-          :color="stat.variation > 0 ? 'success' : 'error'"
-          variant="subtle"
-          class="text-xs"
-        >
-          {{ stat.variation > 0 ? '+' : '' }}{{ stat.variation }}%
+        <UBadge v-if="stat.badge" color="neutral" variant="subtle" class="text-xs">
+          {{ stat.badge }}
         </UBadge>
       </div>
     </UPageCard>
