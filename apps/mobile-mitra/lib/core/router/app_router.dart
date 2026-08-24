@@ -6,6 +6,7 @@ import '../services/auth_session.dart';
 import '../../features/account/presentation/pages/account_page.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/register_page.dart';
+import '../../features/consultations/presentation/pages/consultation_detail_page.dart';
 import '../../features/home/presentation/pages/home_page.dart';
 import '../../features/notifications/presentation/pages/notifications_page.dart';
 import '../../features/orders/presentation/pages/order_detail_page.dart';
@@ -71,6 +72,13 @@ final appRouter = GoRouter(
       builder: (context, state) {
         final id = int.tryParse(state.pathParameters['id'] ?? '');
         return TrackingPage(bookingId: id);
+      },
+    ),
+    GoRoute(
+      path: '/consultations/:id',
+      builder: (context, state) {
+        final id = int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
+        return ConsultationDetailPage(consultationId: id);
       },
     ),
     GoRoute(path: '/wallet', builder: (context, state) => const WalletPage()),

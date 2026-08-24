@@ -11,6 +11,8 @@ import '../../../../shared/widgets/cards/medical_card.dart';
 import '../../../../shared/widgets/common/error_card.dart';
 import '../../../../shared/widgets/loaders/card_skeleton.dart';
 import '../../../../shared/widgets/navigation/mitra_scaffold.dart';
+import '../../../consultations/domain/entities/consultation_summary.dart';
+import '../../../consultations/presentation/cubit/consultations_cubit.dart';
 import '../../domain/entities/incoming_order.dart';
 import '../../domain/entities/order_booking.dart';
 import '../widgets/incoming_order_dialog.dart';
@@ -21,8 +23,11 @@ class OrdersPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => sl<OrdersCubit>()..load(),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(create: (_) => sl<OrdersCubit>()..load()),
+        BlocProvider(create: (_) => sl<ConsultationsCubit>()..load()),
+      ],
       child: const _OrdersView(),
     );
   }
@@ -36,31 +41,117 @@ class _OrdersView extends StatefulWidget {
 }
 
 class _OrdersViewState extends State<_OrdersView> {
+  var _mainTab = _MainTab.layanan;
   var _filter = _OrderFilter.active;
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<OrdersCubit, OrdersState>(
-      builder: (context, state) {
-        return MitraScaffold(
-          title: 'Orders',
-          activeIndex: 1,
-          onRefresh: context.read<OrdersCubit>().load,
-          child: switch (state) {
-            OrdersLoading() || OrdersInitial() => const _Loading(),
-            OrdersError(:final message) => ErrorCard(
-              message: message,
-              onRetry: context.read<OrdersCubit>().load,
+    return MitraScaffold(
+      title: 'Orders',
+      activeIndex: 1,
+      onRefresh: () => _mainTab == _MainTab.layanan
+          ? context.read<OrdersCubit>().load()
+          : context.read<ConsultationsCubit>().load(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _MainTabs(
+            selected: _mainTab,
+            onChanged: (value) => setState(() => _mainTab = value),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          if (_mainTab == _MainTab.layanan)
+            BlocBuilder<OrdersCubit, OrdersState>(
+              builder: (context, state) {
+                return switch (state) {
+                  OrdersLoading() || OrdersInitial() => const _Loading(),
+                  OrdersError(:final message) => ErrorCard(
+                    message: message,
+                    onRetry: context.read<OrdersCubit>().load,
+                  ),
+                  OrdersLoaded(:final orders) => _OrdersContent(
+                    orders: orders,
+                    filter: _filter,
+                    onFilterChanged: (value) => setState(() => _filter = value),
+                  ),
+                  _ => const ErrorCard(message: 'State orders tidak dikenali.'),
+                };
+              },
+            )
+          else
+            BlocBuilder<ConsultationsCubit, ConsultationsState>(
+              builder: (context, state) {
+                return switch (state) {
+                  ConsultationsLoading() ||
+                  ConsultationsInitial() => const _Loading(),
+                  ConsultationsError(:final message) => ErrorCard(
+                    message: message,
+                    onRetry: context.read<ConsultationsCubit>().load,
+                  ),
+                  ConsultationsLoaded(:final consultations) =>
+                    _ConsultationsContent(consultations: consultations),
+                  _ => const ErrorCard(message: 'State konsultasi tidak dikenali.'),
+                };
+              },
             ),
-            OrdersLoaded(:final orders) => _OrdersContent(
-              orders: orders,
-              filter: _filter,
-              onFilterChanged: (value) => setState(() => _filter = value),
+        ],
+      ),
+    );
+  }
+}
+
+enum _MainTab {
+  layanan('Layanan'),
+  konsultasi('Konsultasi');
+
+  const _MainTab(this.label);
+
+  final String label;
+}
+
+class _MainTabs extends StatelessWidget {
+  const _MainTabs({required this.selected, required this.onChanged});
+
+  final _MainTab selected;
+  final ValueChanged<_MainTab> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerLowest,
+        borderRadius: AppRadius.control,
+        border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.7)),
+      ),
+      child: Row(
+        children: [
+          for (final tab in _MainTab.values)
+            Expanded(
+              child: InkWell(
+                borderRadius: AppRadius.control,
+                onTap: () => onChanged(tab),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  decoration: BoxDecoration(
+                    color: selected == tab ? colors.primary : Colors.transparent,
+                    borderRadius: AppRadius.control,
+                  ),
+                  child: Text(
+                    tab.label,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: selected == tab ? colors.onPrimary : colors.onSurfaceVariant,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
             ),
-            _ => const ErrorCard(message: 'State orders tidak dikenali.'),
-          },
-        );
-      },
+        ],
+      ),
     );
   }
 }
@@ -537,6 +628,164 @@ class _CompactOutlinedButton extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ConsultationsContent extends StatelessWidget {
+  const _ConsultationsContent({required this.consultations});
+
+  final List<ConsultationSummary> consultations;
+
+  @override
+  Widget build(BuildContext context) {
+    if (consultations.isEmpty) {
+      return MedicalCard(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: const Text('Belum ada konsultasi masuk'),
+      );
+    }
+
+    return Column(
+      children: [
+        for (final consultation in consultations)
+          _ConsultationListCard(consultation: consultation),
+      ],
+    );
+  }
+}
+
+class _ConsultationListCard extends StatelessWidget {
+  const _ConsultationListCard({required this.consultation});
+
+  final ConsultationSummary consultation;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final status = _consultationStatusInfo(consultation.status);
+
+    return MedicalCard(
+      margin: const EdgeInsets.only(bottom: AppSpacing.md),
+      padding: const EdgeInsets.all(12),
+      onTap: () => context.go('/consultations/${consultation.id}'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: colors.primary.withValues(alpha: 0.12),
+                  borderRadius: AppRadius.control,
+                ),
+                child: const SizedBox(
+                  width: 40,
+                  height: 40,
+                  child: Icon(Icons.chat_bubble_outline_rounded, size: 20, color: AppColors.primary),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      consultation.serviceType.toUpperCase(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        fontSize: 11,
+                        color: colors.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      consultation.patientName,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        height: 1.15,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              _StatusPill(info: status),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            consultation.complaint,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: colors.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: _InlineMeta(
+                  icon: Icons.schedule_outlined,
+                  text: consultation.scheduledAt,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    formatCurrency(consultation.totalAmount),
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+_StatusInfo _consultationStatusInfo(String status) {
+  final normalized = status.toLowerCase();
+  return switch (normalized) {
+    'confirmed' => const _StatusInfo(
+      label: 'DIKONFIRMASI',
+      foreground: AppColors.primary,
+      background: Color(0xFFCFF3E4),
+    ),
+    'ongoing' => const _StatusInfo(
+      label: 'BERLANGSUNG',
+      foreground: AppColors.secondary,
+      background: Color(0xFFDDE7FF),
+      icon: Icons.chat_bubble_rounded,
+    ),
+    'completed' => const _StatusInfo(
+      label: 'SELESAI',
+      foreground: AppColors.primary,
+      background: Color(0xFFDDF8EA),
+    ),
+    'cancelled' || 'canceled' => const _StatusInfo(
+      label: 'DIBATALKAN',
+      foreground: AppColors.error,
+      background: Color(0xFFFFE2DE),
+    ),
+    _ => const _StatusInfo(
+      label: 'MENUNGGU',
+      foreground: AppColors.secondary,
+      background: Color(0xFFE0EAFF),
+    ),
+  };
 }
 
 class _Loading extends StatelessWidget {

@@ -16,6 +16,14 @@ import '../../features/auth/domain/repositories/auth_repository.dart';
 import '../../features/auth/domain/usecases/login_mitra.dart';
 import '../../features/auth/domain/usecases/register_mitra.dart';
 import '../../features/auth/presentation/cubit/auth_cubit.dart';
+import '../../features/consultations/data/repositories/consultations_repository_impl.dart';
+import '../../features/consultations/domain/repositories/consultations_repository.dart';
+import '../../features/consultations/domain/usecases/get_consultation_detail.dart';
+import '../../features/consultations/domain/usecases/get_consultations.dart';
+import '../../features/consultations/domain/usecases/send_consultation_message.dart';
+import '../../features/consultations/domain/usecases/update_consultation_status.dart';
+import '../../features/consultations/presentation/cubit/consultation_detail_cubit.dart';
+import '../../features/consultations/presentation/cubit/consultations_cubit.dart';
 import '../../features/home/data/repositories/home_repository_impl.dart';
 import '../../features/home/domain/repositories/home_repository.dart';
 import '../../features/home/domain/usecases/get_home_summary.dart';
@@ -163,6 +171,25 @@ Future<void> init() async {
       sl<AddServiceBookingHistory>(),
       sl<CompleteServiceBooking>(),
       sl<PartnerLocationSyncService>(),
+    ),
+  );
+
+  sl.registerLazySingleton<ConsultationsRepository>(
+    () => ConsultationsRepositoryImpl(sl<ApiClient>()),
+  );
+  sl.registerLazySingleton(() => GetConsultations(sl<ConsultationsRepository>()));
+  sl.registerLazySingleton(() => GetConsultationDetail(sl<ConsultationsRepository>()));
+  sl.registerLazySingleton(() => UpdateConsultationStatus(sl<ConsultationsRepository>()));
+  sl.registerLazySingleton(() => SendConsultationMessage(sl<ConsultationsRepository>()));
+  sl.registerFactory(
+    () => ConsultationsCubit(sl<GetConsultations>(), sl<ReverbWebSocketService>()),
+  );
+  sl.registerFactory(
+    () => ConsultationDetailCubit(
+      sl<GetConsultationDetail>(),
+      sl<SendConsultationMessage>(),
+      sl<UpdateConsultationStatus>(),
+      sl<ReverbWebSocketService>(),
     ),
   );
 
