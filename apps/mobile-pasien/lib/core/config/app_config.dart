@@ -4,7 +4,7 @@ class AppConfig {
   AppConfig._();
 
   static const String baseUrl = 'https://backend.perawatku.tech';
-  static const String reverbKey = 'medic-app-key';
+  static const String reverbKey = 'Perawatku-app';
   static const String reverbHost = 'backend.perawatku.tech';
   static const int reverbPort = 443;
   static const bool reverbUseTls = true;

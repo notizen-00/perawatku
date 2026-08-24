@@ -15,7 +15,7 @@ class ApiConfig {
 
   static String get apiBaseUrl => '$baseUrl/api';
 
-  static String get reverbKey => 'medic-app-key';
+  static String get reverbKey => 'Perawatku-app';
 
   static Uri get reverbUri {
     final (scheme, host, port) = switch (environment) {
