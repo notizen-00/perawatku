@@ -78,9 +78,9 @@ class ActivityPage extends StatelessWidget {
                       dividerColor: Colors.transparent,
                       indicatorSize: TabBarIndicatorSize.tab,
                       tabs: [
-                        Tab(text: 'Konsultasi'),
+                        Tab(text: 'Semua'),
                         Tab(text: 'Layanan'),
-                        Tab(text: 'Lainnya'),
+                        Tab(text: 'Konsultasi'),
                       ],
                     ),
                   ),
@@ -105,7 +105,9 @@ class ActivityPage extends StatelessWidget {
     }
 
     if (controller.errorMessage.value != null &&
-        controller.consultationActivities.isEmpty) {
+        controller.consultationActivities.isEmpty &&
+        controller.otherActivities.isEmpty &&
+        controller.medicineActivities.isEmpty) {
       return _ActivityStateMessage(
         title: 'Aktivitas belum bisa dimuat',
         description: controller.errorMessage.value!,
@@ -117,11 +119,11 @@ class ActivityPage extends StatelessWidget {
     return TabBarView(
       children: [
         _ActivityListTab(
-          records: controller.consultationActivities,
-          emptyTitle: 'Belum ada riwayat konsultasi',
+          records: controller.allActivities,
+          emptyTitle: 'Belum ada aktivitas',
           emptyDescription:
-              'Aktivitas obrolan dokter dan layanan konsultasi akan muncul di sini.',
-          icon: Icons.medical_information_rounded,
+              'Semua riwayat konsultasi, layanan, dan pesanan Anda akan muncul di sini.',
+          icon: Icons.receipt_long_rounded,
           isDark: isDark,
           formatDate: _formatDate,
           statusStyle: _statusStyle,
@@ -137,11 +139,11 @@ class ActivityPage extends StatelessWidget {
           statusStyle: _statusStyle,
         ),
         _ActivityListTab(
-          records: controller.medicineActivities,
-          emptyTitle: 'Belum ada aktivitas lain',
+          records: controller.consultationActivities,
+          emptyTitle: 'Belum ada riwayat konsultasi',
           emptyDescription:
-              'Aktivitas medis lain yang belum masuk kategori layanan akan tampil di sini.',
-          icon: Icons.inventory_2_rounded,
+              'Aktivitas obrolan dokter dan layanan konsultasi akan muncul di sini.',
+          icon: Icons.medical_information_rounded,
           isDark: isDark,
           formatDate: _formatDate,
           statusStyle: _statusStyle,

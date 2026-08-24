@@ -32,6 +32,24 @@ class ActivityController extends GetxController {
       <ActivityRecordEntity>[].obs;
   final RxnString dismissedActiveOrderKey = RxnString();
 
+  List<ActivityRecordEntity> get allActivities {
+    final records = <ActivityRecordEntity>[
+      ...consultationActivities,
+      ...otherActivities,
+      ...medicineActivities,
+    ];
+
+    records.sort((first, second) {
+      final firstTime =
+          first.dateTime ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final secondTime =
+          second.dateTime ?? DateTime.fromMillisecondsSinceEpoch(0);
+      return secondTime.compareTo(firstTime);
+    });
+
+    return records;
+  }
+
   ActivityRecordEntity? get activeOrder {
     final records = <ActivityRecordEntity>[
       ...consultationActivities,
@@ -85,12 +103,26 @@ class ActivityController extends GetxController {
       );
       final medicineResult = await _runSafely(
         _getMedicinePurchaseActivitiesUseCase,
+        onError: (message) => errorMessage.value = message,
       );
-      final otherResult = await _runSafely(_getOtherActivitiesUseCase);
+      final otherResult = await _runSafely(
+        _getOtherActivitiesUseCase,
+        onError: (message) => errorMessage.value = message,
+      );
 
       consultationActivities.assignAll(consultationResult);
       medicineActivities.assignAll(medicineResult);
       otherActivities.assignAll(otherResult);
+
+      // A single source failing (e.g. consultations timing out) shouldn't
+      // block the other two, which loaded fine -- only surface the error
+      // banner when there's nothing at all left to show.
+      if (errorMessage.value != null &&
+          (consultationActivities.isNotEmpty ||
+              medicineActivities.isNotEmpty ||
+              otherActivities.isNotEmpty)) {
+        errorMessage.value = null;
+      }
     } on AppException catch (error) {
       consultationActivities.clear();
       medicineActivities.clear();
