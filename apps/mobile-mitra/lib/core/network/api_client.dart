@@ -202,19 +202,31 @@ class ApiClient {
     }
   }
 
+  /// Prefers `errors` (Laravel's per-field validation messages) over the
+  /// top-level `message`, because Laravel's `ValidationException` summary
+  /// only keeps the *first* field's message and truncates the rest into a
+  /// vague "(and N more errors)" suffix -- that reads as a meaningless
+  /// error to users when e.g. both email and phone are already taken.
+  /// Joining every field's message instead shows the real, complete reason.
   String _extractMessage(Map<String, dynamic> json) {
+    final errors = json['errors'];
+    if (errors is Map && errors.isNotEmpty) {
+      final messages = <String>[];
+      for (final value in errors.values) {
+        if (value is List) {
+          messages.addAll(value.map((item) => item.toString()));
+        } else if (value != null) {
+          messages.add(value.toString());
+        }
+      }
+      if (messages.isNotEmpty) {
+        return messages.join('\n');
+      }
+    }
+
     final message = json['message'];
     if (message is String && message.trim().isNotEmpty) {
       return message;
-    }
-
-    final errors = json['errors'];
-    if (errors is Map && errors.isNotEmpty) {
-      final first = errors.values.first;
-      if (first is List && first.isNotEmpty) {
-        return first.first.toString();
-      }
-      return first.toString();
     }
 
     return 'Request gagal diproses server.';
