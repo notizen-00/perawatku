@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { TableColumn } from "@nuxt/ui";
 import { listConsultations } from "~/services/admin/consultations";
+import { rejectPartner, verifyPartner } from "~/services/admin/partners";
 import { getUserBalance, getUserBalanceHistory } from "~/services/admin/reports";
 import { listServiceBookings } from "~/services/admin/service-bookings";
 import { normalizeLaravelPaginated } from "~/services/shared/pagination";
@@ -82,6 +83,55 @@ const verificationBadge = computed(() => {
 
   return { color: colorMap[status], label: labelMap[status] };
 });
+
+const verificationStatus = computed(
+  () => (data.value?.partner_profile?.verification_status as VerificationStatus | undefined) ?? "pending",
+);
+
+const verifying = ref(false);
+const rejecting = ref(false);
+const rejectModalOpen = ref(false);
+const rejectReason = ref("");
+
+async function approvePartner() {
+  const partnerId = data.value?.id;
+  if (!partnerId) return;
+  verifying.value = true;
+  try {
+    await verifyPartner(partnerId);
+    toast.add({ title: "Mitra diverifikasi", description: "Akun mitra sekarang berstatus verified.", color: "success" });
+    await refresh();
+  }
+  catch (e: any) {
+    toast.add({ title: "Gagal memverifikasi", description: e?.data?.message || e?.message || "Terjadi kesalahan.", color: "error" });
+  }
+  finally {
+    verifying.value = false;
+  }
+}
+
+function openRejectModal() {
+  rejectReason.value = "";
+  rejectModalOpen.value = true;
+}
+
+async function confirmReject() {
+  const partnerId = data.value?.id;
+  if (!partnerId) return;
+  rejecting.value = true;
+  try {
+    await rejectPartner(partnerId, rejectReason.value.trim() || undefined);
+    toast.add({ title: "Pendaftaran ditolak", description: "Mitra sudah diberi tahu untuk melengkapi/perbaiki data.", color: "warning" });
+    rejectModalOpen.value = false;
+    await refresh();
+  }
+  catch (e: any) {
+    toast.add({ title: "Gagal menolak", description: e?.data?.message || e?.message || "Terjadi kesalahan.", color: "error" });
+  }
+  finally {
+    rejecting.value = false;
+  }
+}
 
 function professionLabel(p?: string) {
   if (p === "dokter") return "Dokter";
@@ -337,9 +387,33 @@ const balanceHistoryColumns: TableColumn<any>[] = [
             </div>
             <div>
               <div class="text-xs text-dimmed">Verifikasi</div>
-              <UBadge :color="verificationBadge.color" variant="subtle">
-                {{ verificationBadge.label }}
-              </UBadge>
+              <div class="mt-1 flex flex-wrap items-center gap-2">
+                <UBadge :color="verificationBadge.color" variant="subtle">
+                  {{ verificationBadge.label }}
+                </UBadge>
+                <UButton
+                  v-if="verificationStatus !== 'verified'"
+                  label="Verifikasi"
+                  icon="i-lucide-check"
+                  color="success"
+                  variant="soft"
+                  size="xs"
+                  :loading="verifying"
+                  @click="approvePartner"
+                />
+                <UButton
+                  v-if="verificationStatus !== 'rejected'"
+                  label="Tolak"
+                  icon="i-lucide-x"
+                  color="error"
+                  variant="soft"
+                  size="xs"
+                  @click="openRejectModal"
+                />
+              </div>
+              <div v-if="verificationStatus === 'rejected' && data?.partner_profile?.rejection_reason" class="mt-1 text-xs text-dimmed">
+                Alasan: {{ data.partner_profile.rejection_reason }}
+              </div>
             </div>
 
             <div>
@@ -399,4 +473,34 @@ const balanceHistoryColumns: TableColumn<any>[] = [
       <USkeleton v-if="pending" class="h-32 w-full mt-4" />
     </template>
   </UDashboardPanel>
+
+  <UModal
+    v-model:open="rejectModalOpen"
+    title="Tolak Pendaftaran Mitra"
+    description="Beri tahu mitra apa yang perlu diperbaiki (opsional, tapi disarankan)."
+  >
+    <template #body>
+      <UTextarea
+        v-model="rejectReason"
+        placeholder="Contoh: Foto STR buram, mohon unggah ulang."
+        :rows="3"
+        class="w-full"
+      />
+      <div class="flex justify-end gap-2 mt-4">
+        <UButton
+          label="Batal"
+          color="neutral"
+          variant="subtle"
+          @click="rejectModalOpen = false"
+        />
+        <UButton
+          label="Tolak Pendaftaran"
+          color="error"
+          variant="solid"
+          :loading="rejecting"
+          @click="confirmReject"
+        />
+      </div>
+    </template>
+  </UModal>
 </template>

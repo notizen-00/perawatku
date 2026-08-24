@@ -41,4 +41,33 @@ class ProfileRepositoryImpl implements ProfileRepository {
       throw ServerFailure(error.message);
     }
   }
+
+  @override
+  Future<void> completeProfile({
+    String? specialization,
+    String? licenseNumber,
+    String? workLocation,
+    int? yearsOfExperience,
+    double? consultationFee,
+    String? bio,
+  }) async {
+    try {
+      await _apiClient.patch(
+        ApiEndpoints.mitraProfile,
+        body: {
+          if (specialization != null && specialization.isNotEmpty)
+            'specialization': specialization,
+          if (licenseNumber != null && licenseNumber.isNotEmpty)
+            'license_number': licenseNumber,
+          if (workLocation != null && workLocation.isNotEmpty)
+            'work_location': workLocation,
+          if (yearsOfExperience != null) 'years_of_experience': yearsOfExperience,
+          if (consultationFee != null) 'consultation_fee': consultationFee,
+          if (bio != null && bio.isNotEmpty) 'bio': bio,
+        },
+      );
+    } on ApiException catch (error) {
+      throw ServerFailure(error.message);
+    }
+  }
 }

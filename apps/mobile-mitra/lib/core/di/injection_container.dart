@@ -29,6 +29,7 @@ import '../../features/home/domain/repositories/home_repository.dart';
 import '../../features/home/domain/usecases/get_home_summary.dart';
 import '../../features/home/presentation/cubit/home_cubit.dart';
 import '../../features/notifications/data/repositories/notifications_repository_impl.dart';
+import '../../features/onboarding/presentation/cubit/complete_profile_cubit.dart';
 import '../../features/notifications/domain/repositories/notifications_repository.dart';
 import '../../features/notifications/domain/usecases/delete_notification.dart';
 import '../../features/notifications/domain/usecases/get_notifications.dart';
@@ -48,6 +49,7 @@ import '../../features/orders/presentation/bloc/order_detail_bloc.dart';
 import '../../features/orders/presentation/cubit/orders_cubit.dart';
 import '../../features/profile/data/repositories/profile_repository_impl.dart';
 import '../../features/profile/domain/repositories/profile_repository.dart';
+import '../../features/profile/domain/usecases/complete_mitra_profile.dart';
 import '../../features/profile/domain/usecases/get_profile.dart';
 import '../../features/profile/domain/usecases/update_partner_availability.dart';
 import '../../features/profile/presentation/cubit/profile_cubit.dart';
@@ -249,4 +251,6 @@ Future<void> init() async {
   );
   sl.registerLazySingleton(() => GetProfile(sl<ProfileRepository>()));
   sl.registerFactory(() => ProfileCubit(sl<GetProfile>()));
+  sl.registerLazySingleton(() => CompleteMitraProfile(sl<ProfileRepository>()));
+  sl.registerFactory(() => CompleteProfileCubit(sl<CompleteMitraProfile>()));
 }

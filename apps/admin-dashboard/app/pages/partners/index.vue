@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { DropdownMenuItem, TableColumn } from "@nuxt/ui";
 import type { Partner } from "~/services/admin/partners";
+import { rejectPartner, verifyPartner } from "~/services/admin/partners";
 
 const store = usePartnersStore();
 const toast = useToast();
@@ -49,7 +50,31 @@ function partnerDocumentThumbUrl(partnerId: number | string, type: string = "str
   return `/api/shared/secure-image/partners/${partnerId}/documents/${type}`;
 }
 
+async function quickVerify(partner: Partner) {
+  try {
+    await verifyPartner(partner.id);
+    toast.add({ title: "Mitra diverifikasi", description: `${partner.name} sekarang berstatus verified.`, color: "success" });
+    await store.fetch();
+  }
+  catch (e: any) {
+    toast.add({ title: "Gagal memverifikasi", description: e?.data?.message || e?.message || "Terjadi kesalahan.", color: "error" });
+  }
+}
+
+async function quickReject(partner: Partner) {
+  try {
+    await rejectPartner(partner.id);
+    toast.add({ title: "Pendaftaran ditolak", description: `${partner.name} ditolak. Buka detail untuk isi alasan.`, color: "warning" });
+    await store.fetch();
+  }
+  catch (e: any) {
+    toast.add({ title: "Gagal menolak", description: e?.data?.message || e?.message || "Terjadi kesalahan.", color: "error" });
+  }
+}
+
 function getRowItems(partner: Partner): DropdownMenuItem[] {
+  const status = partner.partner_profile?.verification_status;
+
   return [
     { label: "Actions", type: "label" },
     {
@@ -57,6 +82,12 @@ function getRowItems(partner: Partner): DropdownMenuItem[] {
       icon: "i-lucide-eye",
       onSelect: () => navigateTo(`/partners/${partner.id}`)
     },
+    ...(status !== "verified"
+      ? [{ label: "Verifikasi", icon: "i-lucide-check", onSelect: () => quickVerify(partner) }]
+      : []),
+    ...(status !== "rejected"
+      ? [{ label: "Tolak", icon: "i-lucide-x", onSelect: () => quickReject(partner) }]
+      : []),
     {
       label: "Copy Partner ID",
       icon: "i-lucide-copy",

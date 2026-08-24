@@ -85,8 +85,8 @@ Field register:
 | `password` | Ya | string | min 8 |
 | `password_confirmation` | Ya | string | harus sama dengan `password` |
 | `profession` | Ya | enum | `dokter`, `bidan`, `perawat` |
-| `specialization` | Ya | string | max 255 |
-| `license_number` | Ya | string | max 255, unique |
+| `specialization` | Tidak | string | max 255. Boleh dikosongkan saat register, dilengkapi lewat `PATCH /api/mitra/profile` di step "lengkapi profil" |
+| `license_number` | Tidak | string | max 255, unique. Sama seperti `specialization`, boleh dilengkapi belakangan |
 | `work_location` | Tidak | string | max 255 |
 | `latitude` | Tidak | numeric | -90 sampai 90 |
 | `longitude` | Tidak | numeric | -180 sampai 180 |
@@ -95,6 +95,11 @@ Field register:
 | `bio` | Tidak | string | deskripsi singkat |
 | `str_photo` | Tidak | file | jpg, jpeg, png, pdf; max 5MB |
 | `ktp_photo` | Tidak | file | jpg, jpeg, png, pdf; max 5MB |
+
+Alur register sekarang dua tahap:
+
+1. `POST /api/mitra/register` cukup data akun (nama/email/telepon/password/profesi) -- akun langsung aktif & bisa login, `partner_profile` dibuat dengan `specialization`/`license_number` kosong dan `verification_status = pending`.
+2. Sebelum diverifikasi admin, mitra melengkapi data profesional (spesialisasi, nomor STR, lokasi kerja, dst.) lewat `PATCH /api/mitra/profile` (lihat [Profil Mitra](#profil-mitra)). Field-field ini bisa juga dikirim langsung saat register kalau clientnya mau satu langkah -- keduanya didukung.
 
 Response penting:
 

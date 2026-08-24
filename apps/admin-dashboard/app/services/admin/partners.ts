@@ -23,6 +23,7 @@ export type PartnerProfile = {
   verification_status?: 'pending' | 'verified' | 'rejected'
   str_photo_path?: string | null
   ktp_photo_path?: string | null
+  rejection_reason?: string | null
 }
 
 export type Partner = {
@@ -39,5 +40,18 @@ export type Partner = {
 export async function listPartners(query: ListPartnersQuery = {}) {
   return await $fetch<ApiListResponse<any>>('/api/admin/partners', {
     query
+  })
+}
+
+export async function verifyPartner(id: number | string) {
+  return await $fetch<ApiListResponse<Partner>>(`/api/admin/partners/${id}/verify`, {
+    method: 'PATCH'
+  })
+}
+
+export async function rejectPartner(id: number | string, reason?: string) {
+  return await $fetch<ApiListResponse<Partner>>(`/api/admin/partners/${id}/reject`, {
+    method: 'PATCH',
+    body: reason ? { reason } : {}
   })
 }

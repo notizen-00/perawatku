@@ -58,8 +58,8 @@ class PartnerRegistrationService
             PartnerProfile::create([
                 'user_id' => $user->id,
                 'profession' => $profession,
-                'specialization' => $payload['specialization'],
-                'license_number' => $payload['license_number'],
+                'specialization' => $payload['specialization'] ?? null,
+                'license_number' => $payload['license_number'] ?? null,
                 'work_location' => $payload['work_location'] ?? null,
                 'latitude' => $payload['latitude'] ?? null,
                 'longitude' => $payload['longitude'] ?? null,

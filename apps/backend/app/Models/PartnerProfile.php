@@ -23,6 +23,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'verified_by_user_id',
     'str_photo_path',
     'ktp_photo_path',
+    'rejection_reason',
 ])]
 class PartnerProfile extends Model
 {

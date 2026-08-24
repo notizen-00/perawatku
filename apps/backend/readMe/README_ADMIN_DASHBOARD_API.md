@@ -283,7 +283,7 @@ DELETE /api/admin/promo-codes/{id}
 ```
 GET /api/admin/partners
 ```
-**Query:** `profession` (`dokter`|`perawat`|`bidan`), `search` (string), `is_available` (bool), `per_page` (int)
+**Query:** `profession` (`dokter`|`perawat`|`bidan`), `verification_status` (`pending`|`verified`|`rejected`), `search` (string), `is_available` (bool), `per_page` (int)
 
 ### List dokter / perawat / bidan
 ```
@@ -297,7 +297,17 @@ GET /api/admin/midwives
 ```
 PATCH /api/admin/partners/{user_id}/verify
 ```
-**Body:** kosong. Mengubah `verification_status` mitra menjadi `verified`.
+**Body:** kosong. Mengubah `verification_status` mitra menjadi `verified`, set `verified_at`/`verified_by_user_id`, dan mengosongkan `rejection_reason` kalau sebelumnya pernah ditolak.
+
+### Tolak pendaftaran mitra
+```
+PATCH /api/admin/partners/{user_id}/reject
+```
+**Body (JSON):**
+```json
+{ "reason": "Foto STR buram, mohon unggah ulang." }
+```
+`reason` opsional (nullable, max 1000 karakter). Mengubah `verification_status` mitra menjadi `rejected`, mengosongkan `verified_at`, dan menyimpan `rejection_reason`.
 
 ---
 

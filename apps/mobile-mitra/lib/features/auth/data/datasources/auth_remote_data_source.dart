@@ -28,8 +28,8 @@ class AuthRemoteDataSource {
     required String password,
     required String passwordConfirmation,
     required String profession,
-    required String specialization,
-    required String licenseNumber,
+    String? specialization,
+    String? licenseNumber,
     String? workLocation,
     int? yearsOfExperience,
     double? consultationFee,
@@ -44,8 +44,10 @@ class AuthRemoteDataSource {
         'password': password,
         'password_confirmation': passwordConfirmation,
         'profession': profession,
-        'specialization': specialization,
-        'license_number': licenseNumber,
+        if (specialization != null && specialization.isNotEmpty)
+          'specialization': specialization,
+        if (licenseNumber != null && licenseNumber.isNotEmpty)
+          'license_number': licenseNumber,
         if (workLocation != null && workLocation.isNotEmpty)
           'work_location': workLocation,
         if (yearsOfExperience != null)

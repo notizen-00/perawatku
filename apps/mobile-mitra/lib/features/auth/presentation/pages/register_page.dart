@@ -33,12 +33,6 @@ class _RegisterViewState extends State<_RegisterView> {
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _passwordConfirmationController = TextEditingController();
-  final _specializationController = TextEditingController();
-  final _licenseNumberController = TextEditingController();
-  final _workLocationController = TextEditingController();
-  final _experienceController = TextEditingController();
-  final _feeController = TextEditingController();
-  final _bioController = TextEditingController();
   String _profession = 'perawat';
   bool _obscurePassword = true;
 
@@ -49,12 +43,6 @@ class _RegisterViewState extends State<_RegisterView> {
     _phoneController.dispose();
     _passwordController.dispose();
     _passwordConfirmationController.dispose();
-    _specializationController.dispose();
-    _licenseNumberController.dispose();
-    _workLocationController.dispose();
-    _experienceController.dispose();
-    _feeController.dispose();
-    _bioController.dispose();
     super.dispose();
   }
 
@@ -65,12 +53,9 @@ class _RegisterViewState extends State<_RegisterView> {
     return BlocConsumer<AuthCubit, AuthState>(
       listener: (context, state) {
         if (state is AuthSuccess) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Pendaftaran berhasil. Akun menunggu verifikasi admin.'),
-            ),
-          );
-          context.go('/dashboard');
+          // Akun dasar sudah dibuat -- data profesional (spesialisasi, STR,
+          // dsb) dilengkapi di step berikutnya sebelum admin memverifikasi.
+          context.go('/onboarding/complete-profile');
         }
 
         if (state is AuthError) {
@@ -96,25 +81,26 @@ class _RegisterViewState extends State<_RegisterView> {
               children: [
                 Center(
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 720),
+                    constraints: const BoxConstraints(maxWidth: 480),
                     child: MedicalCard(
                       child: Form(
                         key: _formKey,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
-                              'Profil Profesional',
+                              'Buat Akun Mitra',
                               style: Theme.of(context).textTheme.headlineMedium,
                             ),
                             const SizedBox(height: AppSpacing.xs),
                             Text(
-                              'Data ini dikirim ke endpoint pendaftaran mitra dan akan diverifikasi admin.',
+                              'Isi data dasar dulu. Spesialisasi, nomor STR, dan '
+                              'dokumen pendukung dilengkapi setelah ini, sebelum '
+                              'akun diverifikasi admin.',
                               style: Theme.of(context).textTheme.bodyMedium,
                             ),
                             const SizedBox(height: AppSpacing.xl),
-                            _SectionLabel(label: 'Akun'),
-                            const SizedBox(height: AppSpacing.md),
                             _TextField(
                               controller: _nameController,
                               label: 'Nama lengkap',
@@ -136,6 +122,34 @@ class _RegisterViewState extends State<_RegisterView> {
                               icon: Icons.call_outlined,
                               keyboardType: TextInputType.phone,
                               enabled: !loading,
+                            ),
+                            const SizedBox(height: AppSpacing.md),
+                            DropdownButtonFormField<String>(
+                              initialValue: _profession,
+                              decoration: const InputDecoration(
+                                labelText: 'Daftar sebagai',
+                                prefixIcon: Icon(Icons.badge_outlined),
+                              ),
+                              items: const [
+                                DropdownMenuItem(
+                                  value: 'perawat',
+                                  child: Text('Perawat'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'dokter',
+                                  child: Text('Dokter'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'bidan',
+                                  child: Text('Bidan'),
+                                ),
+                              ],
+                              onChanged: loading
+                                  ? null
+                                  : (value) {
+                                      if (value == null) return;
+                                      setState(() => _profession = value);
+                                    },
                             ),
                             const SizedBox(height: AppSpacing.md),
                             _PasswordField(
@@ -163,93 +177,6 @@ class _RegisterViewState extends State<_RegisterView> {
                               },
                             ),
                             const SizedBox(height: AppSpacing.xl),
-                            _SectionLabel(label: 'Data Mitra'),
-                            const SizedBox(height: AppSpacing.md),
-                            DropdownButtonFormField<String>(
-                              initialValue: _profession,
-                              decoration: const InputDecoration(
-                                labelText: 'Profesi',
-                                prefixIcon: Icon(Icons.badge_outlined),
-                              ),
-                              items: const [
-                                DropdownMenuItem(
-                                  value: 'perawat',
-                                  child: Text('Perawat'),
-                                ),
-                                DropdownMenuItem(
-                                  value: 'dokter',
-                                  child: Text('Dokter'),
-                                ),
-                                DropdownMenuItem(
-                                  value: 'bidan',
-                                  child: Text('Bidan'),
-                                ),
-                              ],
-                              onChanged: loading
-                                  ? null
-                                  : (value) {
-                                      if (value == null) return;
-                                      setState(() => _profession = value);
-                                    },
-                            ),
-                            const SizedBox(height: AppSpacing.md),
-                            _TextField(
-                              controller: _specializationController,
-                              label: 'Spesialisasi',
-                              icon: Icons.medical_information_outlined,
-                              enabled: !loading,
-                            ),
-                            const SizedBox(height: AppSpacing.md),
-                            _TextField(
-                              controller: _licenseNumberController,
-                              label: 'Nomor STR/SIP',
-                              icon: Icons.verified_user_outlined,
-                              enabled: !loading,
-                            ),
-                            const SizedBox(height: AppSpacing.md),
-                            _TextField(
-                              controller: _workLocationController,
-                              label: 'Lokasi kerja',
-                              icon: Icons.location_on_outlined,
-                              enabled: !loading,
-                              required: false,
-                            ),
-                            const SizedBox(height: AppSpacing.md),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: _TextField(
-                                    controller: _experienceController,
-                                    label: 'Pengalaman',
-                                    icon: Icons.timeline_outlined,
-                                    keyboardType: TextInputType.number,
-                                    enabled: !loading,
-                                    required: false,
-                                  ),
-                                ),
-                                const SizedBox(width: AppSpacing.md),
-                                Expanded(
-                                  child: _TextField(
-                                    controller: _feeController,
-                                    label: 'Tarif konsultasi',
-                                    icon: Icons.payments_outlined,
-                                    keyboardType: TextInputType.number,
-                                    enabled: !loading,
-                                    required: false,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: AppSpacing.md),
-                            _TextField(
-                              controller: _bioController,
-                              label: 'Bio singkat',
-                              icon: Icons.notes_outlined,
-                              enabled: !loading,
-                              required: false,
-                              maxLines: 3,
-                            ),
-                            const SizedBox(height: AppSpacing.xl),
                             SizedBox(
                               width: double.infinity,
                               child: FilledButton.icon(
@@ -262,7 +189,7 @@ class _RegisterViewState extends State<_RegisterView> {
                                       )
                                     : const Icon(Icons.app_registration_rounded),
                                 label: Text(
-                                  loading ? 'Mengirim...' : 'Daftar Mitra',
+                                  loading ? 'Mengirim...' : 'Lanjutkan',
                                 ),
                               ),
                             ),
@@ -299,12 +226,6 @@ class _RegisterViewState extends State<_RegisterView> {
       password: _passwordController.text,
       passwordConfirmation: _passwordConfirmationController.text,
       profession: _profession,
-      specialization: _specializationController.text.trim(),
-      licenseNumber: _licenseNumberController.text.trim(),
-      workLocation: _emptyToNull(_workLocationController.text),
-      yearsOfExperience: int.tryParse(_experienceController.text.trim()),
-      consultationFee: double.tryParse(_feeController.text.trim()),
-      bio: _emptyToNull(_bioController.text),
     );
   }
 
@@ -327,8 +248,6 @@ class _TextField extends StatelessWidget {
     required this.icon,
     required this.enabled,
     this.keyboardType,
-    this.required = true,
-    this.maxLines = 1,
   });
 
   final TextEditingController controller;
@@ -336,8 +255,6 @@ class _TextField extends StatelessWidget {
   final IconData icon;
   final bool enabled;
   final TextInputType? keyboardType;
-  final bool required;
-  final int maxLines;
 
   @override
   Widget build(BuildContext context) {
@@ -345,12 +262,11 @@ class _TextField extends StatelessWidget {
       controller: controller,
       enabled: enabled,
       keyboardType: keyboardType,
-      maxLines: maxLines,
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: Icon(icon),
       ),
-      validator: required ? _requiredValidator : null,
+      validator: _requiredValidator,
     );
   }
 }
@@ -393,25 +309,9 @@ class _PasswordField extends StatelessWidget {
   }
 }
 
-class _SectionLabel extends StatelessWidget {
-  const _SectionLabel({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(label, style: Theme.of(context).textTheme.titleLarge);
-  }
-}
-
 String? _requiredValidator(String? value) {
   if (value == null || value.trim().isEmpty) {
     return 'Wajib diisi';
   }
   return null;
-}
-
-String? _emptyToNull(String value) {
-  final trimmed = value.trim();
-  return trimmed.isEmpty ? null : trimmed;
 }

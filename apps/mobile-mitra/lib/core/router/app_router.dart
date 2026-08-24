@@ -7,6 +7,7 @@ import '../../features/account/presentation/pages/account_page.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/register_page.dart';
 import '../../features/consultations/presentation/pages/consultation_detail_page.dart';
+import '../../features/onboarding/presentation/pages/complete_profile_page.dart';
 import '../../features/home/presentation/pages/home_page.dart';
 import '../../features/notifications/presentation/pages/notifications_page.dart';
 import '../../features/orders/presentation/pages/order_detail_page.dart';
@@ -51,6 +52,10 @@ final appRouter = GoRouter(
   routes: [
     GoRoute(path: '/', builder: (context, state) => const LoginPage()),
     GoRoute(path: '/dashboard', builder: (context, state) => const HomePage()),
+    GoRoute(
+      path: '/onboarding/complete-profile',
+      builder: (context, state) => const CompleteProfilePage(),
+    ),
     GoRoute(
       path: '/notifications',
       builder: (context, state) => const NotificationsPage(),

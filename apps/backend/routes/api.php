@@ -296,6 +296,7 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/nurses', 'nurses');
             Route::get('/midwives', 'midwives');
             Route::patch('/partners/{user}/verify', 'verify');
+            Route::patch('/partners/{user}/reject', 'reject');
         });
 
         Route::get('/apotiks', [AdminPharmaciesController::class, 'index']);

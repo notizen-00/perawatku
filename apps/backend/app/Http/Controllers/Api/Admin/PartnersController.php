@@ -15,6 +15,7 @@ class PartnersController extends Controller
     {
         $validated = $request->validate([
             'profession' => ['nullable', 'in:dokter,perawat,bidan'],
+            'verification_status' => ['nullable', 'in:pending,verified,rejected'],
             'search' => ['nullable', 'string', 'max:100'],
             'is_available' => ['nullable', 'boolean'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
@@ -29,6 +30,10 @@ class PartnersController extends Controller
                     $validated['profession'] ?? null,
                     fn ($profileQuery, $profession) => $profileQuery->where('profession', $profession)
                 )
+                    ->when(
+                        $validated['verification_status'] ?? null,
+                        fn ($profileQuery, $status) => $profileQuery->where('verification_status', $status)
+                    )
                     ->when(
                         array_key_exists('is_available', $validated),
                         fn ($profileQuery) => $profileQuery->where('is_available', $validated['is_available'])
@@ -81,6 +86,47 @@ class PartnersController extends Controller
 
     public function verify(Request $request, User $user): JsonResponse
     {
+        $admin = $this->ensureAdmin($request);
+        $partnerProfile = $this->ensurePartnerProfile($user);
+
+        $partnerProfile->update([
+            'verification_status' => 'verified',
+            'verified_at' => now(),
+            'verified_by_user_id' => $admin->id,
+            // Clear any previous rejection so it doesn't linger after approval.
+            'rejection_reason' => null,
+        ]);
+
+        return response()->json([
+            'message' => 'Mitra berhasil diverifikasi.',
+            'data' => $user->load('partnerProfile'),
+        ]);
+    }
+
+    public function reject(Request $request, User $user): JsonResponse
+    {
+        $admin = $this->ensureAdmin($request);
+        $partnerProfile = $this->ensurePartnerProfile($user);
+
+        $validated = $request->validate([
+            'reason' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $partnerProfile->update([
+            'verification_status' => 'rejected',
+            'verified_at' => null,
+            'verified_by_user_id' => $admin->id,
+            'rejection_reason' => $validated['reason'] ?? null,
+        ]);
+
+        return response()->json([
+            'message' => 'Pendaftaran mitra ditolak.',
+            'data' => $user->load('partnerProfile'),
+        ]);
+    }
+
+    private function ensureAdmin(Request $request): User
+    {
         /** @var User|null $admin */
         $admin = $request->user();
 
@@ -90,6 +136,11 @@ class PartnersController extends Controller
             ]);
         }
 
+        return $admin;
+    }
+
+    private function ensurePartnerProfile(User $user): PartnerProfile
+    {
         if ($user->role !== 'mitra') {
             throw ValidationException::withMessages([
                 'partner_user_id' => ['User bukan akun mitra.'],
@@ -105,15 +156,6 @@ class PartnersController extends Controller
             ]);
         }
 
-        $partnerProfile->update([
-            'verification_status' => 'verified',
-            'verified_at' => now(),
-            'verified_by_user_id' => $admin->id,
-        ]);
-
-        return response()->json([
-            'message' => 'Mitra berhasil diverifikasi.',
-            'data' => $user->load('partnerProfile'),
-        ]);
+        return $partnerProfile;
     }
 }

@@ -21,8 +21,11 @@ class MitraAuthController extends BaseAuthController
             'phone' => ['required', 'string', 'max:20', 'unique:users,phone'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
             'profession' => ['required', 'in:dokter,bidan,perawat'],
-            'specialization' => ['required', 'string', 'max:255'],
-            'license_number' => ['required', 'string', 'max:255', 'unique:partner_profiles,license_number'],
+            // Kept nullable: mitra hanya mengisi data akun (nama/email/telepon/password/profesi)
+            // saat register, lalu melengkapi spesialisasi/STR/dokumen di step "lengkapi profil"
+            // (PATCH /mitra/profile) sebelum admin memverifikasi. Kolomnya sudah nullable di DB.
+            'specialization' => ['nullable', 'string', 'max:255'],
+            'license_number' => ['nullable', 'string', 'max:255', 'unique:partner_profiles,license_number'],
             'work_location' => ['nullable', 'string', 'max:255'],
             'latitude' => ['nullable', 'numeric', 'between:-90,90'],
             'longitude' => ['nullable', 'numeric', 'between:-180,180'],
