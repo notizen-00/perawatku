@@ -212,6 +212,8 @@ class ServiceBookingHistoryEntity {
     required this.title,
     required this.notes,
     required this.createdAt,
+    required this.photoUrl,
+    required this.checklist,
   });
 
   final int? id;
@@ -220,6 +222,8 @@ class ServiceBookingHistoryEntity {
   final String? title;
   final String? notes;
   final String? createdAt;
+  final String? photoUrl;
+  final List<String> checklist;
 
   bool get isTreatment {
     final values = <String?>[type, status, title, notes]

@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/di/injection_container.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -101,6 +104,8 @@ class _DetailContent extends StatelessWidget {
               _PatientCard(order: order),
               const SizedBox(height: AppSpacing.sm),
               _AddressCard(order: order),
+              const SizedBox(height: AppSpacing.sm),
+              _VisitDetailCard(order: order),
               const SizedBox(height: AppSpacing.sm),
               _ServiceSummaryCard(order: order),
               const SizedBox(height: AppSpacing.sm),
@@ -359,6 +364,99 @@ class _AddressCard extends StatelessWidget {
   }
 }
 
+/// Shows the visit model (sekali visit vs terjadwal, kunjungan rumah vs RS,
+/// live-in) and the transport/meal fees admin's fee policy applied to this
+/// booking -- see PRD-service-booking-terjadwal-dan-biaya.md.
+class _VisitDetailCard extends StatelessWidget {
+  const _VisitDetailCard({required this.order});
+
+  final OrderDetail order;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+
+    return MedicalCard(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Detail Kunjungan',
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Wrap(
+            spacing: AppSpacing.xs,
+            runSpacing: AppSpacing.xs,
+            children: [
+              _SmallChip(
+                icon: order.isRecurring ? Icons.event_repeat_rounded : Icons.event_rounded,
+                text: order.isRecurring
+                    ? 'Terjadwal · ${_recurrenceLabel(order.recurrence)} · ${order.visitCount}x'
+                    : 'Sekali visit',
+              ),
+              _SmallChip(
+                icon: order.isLiveIn ? Icons.hotel_rounded : Icons.directions_walk_rounded,
+                text: order.isLiveIn ? 'Live-in (menginap)' : 'Kunjungan biasa',
+              ),
+              _SmallChip(
+                icon: order.isHospitalVisit ? Icons.local_hospital_outlined : Icons.home_outlined,
+                text: order.isHospitalVisit ? 'Di rumah sakit' : 'Di rumah pasien',
+              ),
+            ],
+          ),
+          if (order.hasExtraFees) ...[
+            const SizedBox(height: AppSpacing.sm),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: colors.surfaceContainerLow,
+                borderRadius: AppRadius.control,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.sm),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Biaya tambahan (kebijakan admin)',
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                            color: colors.onSurfaceVariant,
+                            fontSize: 10,
+                          ),
+                    ),
+                    const SizedBox(height: 4),
+                    if (order.transportFee > 0)
+                      Text(
+                        'Transportasi: ${formatCurrency(order.transportFee)}',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    if (order.mealFee > 0)
+                      Text(
+                        'Uang makan: ${formatCurrency(order.mealFee)}',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+String _recurrenceLabel(String recurrence) {
+  return switch (recurrence) {
+    'weekly' => 'Mingguan',
+    'monthly' => 'Bulanan',
+    _ => recurrence,
+  };
+}
+
 class _ServiceSummaryCard extends StatelessWidget {
   const _ServiceSummaryCard({required this.order});
 
@@ -442,11 +540,23 @@ class _HistoryCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Riwayat Pesanan',
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w800,
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Riwayat Pesanan',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
                 ),
+              ),
+              if (_canAddTindakan(order.status))
+                TextButton.icon(
+                  onPressed: () => _openAddTindakanSheet(context, order.id),
+                  icon: const Icon(Icons.add_a_photo_outlined, size: 16),
+                  label: const Text('Tambah Tindakan'),
+                ),
+            ],
           ),
           const SizedBox(height: AppSpacing.sm),
           if (order.histories.isEmpty)
@@ -458,8 +568,250 @@ class _HistoryCard extends StatelessWidget {
                 done: index < order.histories.length - 1,
                 active: index == order.histories.length - 1,
                 caption: order.histories[index].notes,
+                photoUrl: order.histories[index].photoUrl,
+                checklist: order.histories[index].checklist,
               ),
         ],
+      ),
+    );
+  }
+}
+
+bool _canAddTindakan(String status) {
+  final normalized = status.toLowerCase();
+  return normalized == 'confirmed' || normalized == 'on_the_way';
+}
+
+Future<void> _openAddTindakanSheet(BuildContext context, int orderId) async {
+  final bloc = context.read<OrderDetailBloc>();
+
+  await showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    builder: (sheetContext) => BlocProvider.value(
+      value: bloc,
+      child: _AddTindakanSheet(orderId: orderId),
+    ),
+  );
+}
+
+/// Form mitra untuk mencatat tindakan penanganan pasien: judul, catatan,
+/// foto dokumentasi, dan checklist tindakan yang sudah dilakukan. Dikirim
+/// ke `POST /mitra/service-bookings/{id}/histories` (lihat
+/// [OrderDetailBloc._onTindakanAdded]) dan langsung terlihat di riwayat
+/// pesanan pasien juga, karena keduanya membaca relasi `histories` yang sama.
+class _AddTindakanSheet extends StatefulWidget {
+  const _AddTindakanSheet({required this.orderId});
+
+  final int orderId;
+
+  @override
+  State<_AddTindakanSheet> createState() => _AddTindakanSheetState();
+}
+
+class _AddTindakanSheetState extends State<_AddTindakanSheet> {
+  final _titleController = TextEditingController(text: 'Tindakan penanganan pasien');
+  final _descriptionController = TextEditingController();
+  final _checklistInputController = TextEditingController();
+  final _checklist = <String>[];
+  String? _photoPath;
+  bool _submitting = false;
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descriptionController.dispose();
+    _checklistInputController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickPhoto() async {
+    final picker = ImagePicker();
+    final file = await picker.pickImage(
+      source: ImageSource.camera,
+      maxWidth: 1280,
+      imageQuality: 82,
+    );
+    if (file == null || !mounted) return;
+    setState(() => _photoPath = file.path);
+  }
+
+  void _addChecklistItem() {
+    final value = _checklistInputController.text.trim();
+    if (value.isEmpty) return;
+    setState(() {
+      _checklist.add(value);
+      _checklistInputController.clear();
+    });
+  }
+
+  void _submit(BuildContext context) {
+    if (_titleController.text.trim().isEmpty || _submitting) return;
+
+    setState(() => _submitting = true);
+    context.read<OrderDetailBloc>().add(
+          OrderDetailTindakanAdded(
+            id: widget.orderId,
+            title: _titleController.text.trim(),
+            description: _descriptionController.text.trim(),
+            checklist: _checklist,
+            photoPath: _photoPath,
+          ),
+        );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+
+    return BlocListener<OrderDetailBloc, OrderDetailState>(
+      listener: (context, state) {
+        if (!_submitting) return;
+
+        if (state is OrderDetailLoaded) {
+          Navigator.of(context).pop();
+        } else if (state is OrderDetailError) {
+          setState(() => _submitting = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(state.message), backgroundColor: colors.error),
+          );
+        }
+      },
+      child: Builder(
+        builder: (context) {
+          final submitting = _submitting;
+          return Padding(
+            padding: EdgeInsets.only(
+              left: AppSpacing.mobileMargin,
+              right: AppSpacing.mobileMargin,
+              top: AppSpacing.lg,
+              bottom: MediaQuery.of(context).viewInsets.bottom + AppSpacing.lg,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Tambah Tindakan',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    'Catat tindakan yang sudah dilakukan. Pasien bisa melihat catatan ini secara langsung.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  TextField(
+                    controller: _titleController,
+                    enabled: !submitting,
+                    decoration: const InputDecoration(labelText: 'Judul tindakan'),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  TextField(
+                    controller: _descriptionController,
+                    enabled: !submitting,
+                    maxLines: 3,
+                    decoration: const InputDecoration(labelText: 'Catatan (opsional)'),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  Text('Checklist tindakan', style: Theme.of(context).textTheme.labelLarge),
+                  const SizedBox(height: AppSpacing.xs),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _checklistInputController,
+                          enabled: !submitting,
+                          decoration: const InputDecoration(
+                            hintText: 'mis. Cek tekanan darah',
+                            isDense: true,
+                          ),
+                          onSubmitted: (_) => _addChecklistItem(),
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.xs),
+                      IconButton.filledTonal(
+                        onPressed: submitting ? null : _addChecklistItem,
+                        icon: const Icon(Icons.add_rounded),
+                      ),
+                    ],
+                  ),
+                  if (_checklist.isNotEmpty) ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        for (final item in _checklist)
+                          InputChip(
+                            label: Text(item),
+                            onDeleted: submitting
+                                ? null
+                                : () => setState(() => _checklist.remove(item)),
+                          ),
+                      ],
+                    ),
+                  ],
+                  const SizedBox(height: AppSpacing.md),
+                  Text('Foto dokumentasi', style: Theme.of(context).textTheme.labelLarge),
+                  const SizedBox(height: AppSpacing.xs),
+                  if (_photoPath != null)
+                    Stack(
+                      children: [
+                        ClipRRect(
+                          borderRadius: AppRadius.control,
+                          child: Image.file(
+                            File(_photoPath!),
+                            height: 160,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                        Positioned(
+                          right: 4,
+                          top: 4,
+                          child: IconButton.filled(
+                            onPressed: submitting ? null : () => setState(() => _photoPath = null),
+                            icon: const Icon(Icons.close_rounded, size: 16),
+                            style: IconButton.styleFrom(
+                              backgroundColor: Colors.black54,
+                              minimumSize: const Size(28, 28),
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  else
+                    OutlinedButton.icon(
+                      onPressed: submitting ? null : _pickPhoto,
+                      icon: const Icon(Icons.camera_alt_outlined),
+                      label: const Text('Ambil foto'),
+                    ),
+                  const SizedBox(height: AppSpacing.xl),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: FilledButton.icon(
+                      onPressed: submitting ? null : () => _submit(context),
+                      icon: submitting
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            )
+                          : const Icon(Icons.check_rounded),
+                      label: Text(submitting ? 'Menyimpan...' : 'Simpan Tindakan'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -652,12 +1004,16 @@ class _ChecklistRow extends StatelessWidget {
     this.done = false,
     this.active = false,
     this.caption = '',
+    this.photoUrl,
+    this.checklist = const [],
   });
 
   final String text;
   final bool done;
   final bool active;
   final String caption;
+  final String? photoUrl;
+  final List<String> checklist;
 
   @override
   Widget build(BuildContext context) {
@@ -719,6 +1075,35 @@ class _ChecklistRow extends StatelessWidget {
                           color: colors.onSurfaceVariant,
                           fontSize: 11,
                         ),
+                  ),
+                ],
+                if (checklist.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      for (final item in checklist)
+                        _SmallChip(icon: Icons.check_circle_outline_rounded, text: item),
+                    ],
+                  ),
+                ],
+                if (photoUrl != null && photoUrl!.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  ClipRRect(
+                    borderRadius: AppRadius.control,
+                    child: Image.network(
+                      photoUrl!,
+                      height: 120,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        height: 120,
+                        alignment: Alignment.center,
+                        color: colors.surfaceContainerLow,
+                        child: Icon(Icons.broken_image_outlined, color: colors.onSurfaceVariant),
+                      ),
+                    ),
                   ),
                 ],
               ],

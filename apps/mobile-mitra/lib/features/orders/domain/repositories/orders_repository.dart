@@ -17,6 +17,8 @@ abstract class OrdersRepository {
     required String title,
     required String description,
     required String treatmentType,
+    String? photoPath,
+    List<String>? checklist,
   });
 
   Future<OrderDetail> completeServiceBooking(int id);

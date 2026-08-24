@@ -119,16 +119,34 @@ class OrdersRepositoryImpl implements OrdersRepository {
     required String title,
     required String description,
     required String treatmentType,
+    String? photoPath,
+    List<String>? checklist,
   }) async {
     try {
-      await _apiClient.post(
-        ApiEndpoints.serviceBookingHistories(id),
-        body: {
-          'title': title,
-          'description': description,
-          'treatment_type': treatmentType,
-        },
-      );
+      if (photoPath == null && (checklist == null || checklist.isEmpty)) {
+        await _apiClient.post(
+          ApiEndpoints.serviceBookingHistories(id),
+          body: {
+            'title': title,
+            'description': description,
+            'treatment_type': treatmentType,
+          },
+        );
+      } else {
+        await _apiClient.postMultipart(
+          ApiEndpoints.serviceBookingHistories(id),
+          fields: {
+            'title': title,
+            'description': description,
+            'treatment_type': treatmentType,
+          },
+          listFields: checklist != null && checklist.isNotEmpty
+              ? {'checklist': checklist}
+              : null,
+          fileFieldName: photoPath != null ? 'photo' : null,
+          filePath: photoPath,
+        );
+      }
       return getOrderDetail(id);
     } on ApiException catch (error) {
       throw ServerFailure(error.message);
@@ -202,6 +220,13 @@ class OrdersRepositoryImpl implements OrdersRepository {
       etaMinutes: _etaMinutes(json, distance),
       paymentStatus: payment?['status']?.toString() ?? 'unpaid',
       histories: _histories(json['histories']),
+      visitPlan: json['visit_plan']?.toString() ?? 'once',
+      careMode: json['care_mode']?.toString() ?? 'visit',
+      locationType: json['location_type']?.toString() ?? 'home',
+      recurrence: json['recurrence']?.toString() ?? '-',
+      visitCount: asInt(json['visit_count']) == 0 ? 1 : asInt(json['visit_count']),
+      transportFee: asDouble(json['transport_fee']),
+      mealFee: asDouble(json['meal_fee']),
     );
   }
 
@@ -231,6 +256,8 @@ class OrdersRepositoryImpl implements OrdersRepository {
     if (value is! List) return const [];
 
     return value.whereType<Map<String, dynamic>>().map((item) {
+      final checklist = item['checklist'];
+
       return OrderHistory(
         title: item['title']?.toString() ?? '',
         status: item['status']?.toString() ?? '-',
@@ -239,6 +266,10 @@ class OrdersRepositoryImpl implements OrdersRepository {
             '',
         treatmentType: item['treatment_type']?.toString() ?? '',
         createdAt: displayTime(item['created_at'] ?? item['updated_at']),
+        photoUrl: item['photo_url']?.toString(),
+        checklist: checklist is List
+            ? checklist.map((entry) => entry.toString()).toList()
+            : const [],
       );
     }).toList();
   }

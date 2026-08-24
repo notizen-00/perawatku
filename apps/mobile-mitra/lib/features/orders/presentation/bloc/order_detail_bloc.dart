@@ -31,6 +31,7 @@ class OrderDetailBloc extends Bloc<OrderDetailEvent, OrderDetailState> {
     on<OrderDetailJourneyStarted>(_onJourneyStarted);
     on<OrderDetailArrived>(_onArrived);
     on<OrderDetailTreatmentStarted>(_onTreatmentStarted);
+    on<OrderDetailTindakanAdded>(_onTindakanAdded);
     on<OrderDetailCompleted>(_onCompleted);
   }
 
@@ -147,6 +148,23 @@ class OrderDetailBloc extends Bloc<OrderDetailEvent, OrderDetailState> {
         title: 'Penanganan pasien dimulai',
         description: 'Mitra mulai melakukan pemeriksaan dan penanganan pasien.',
         treatmentType: 'treatment_started',
+      ),
+    );
+  }
+
+  Future<void> _onTindakanAdded(
+    OrderDetailTindakanAdded event,
+    Emitter<OrderDetailState> emit,
+  ) async {
+    await _action(
+      emit,
+      action: () => _addServiceBookingHistory(
+        id: event.id,
+        title: event.title,
+        description: event.description,
+        treatmentType: 'tindakan',
+        photoPath: event.photoPath,
+        checklist: event.checklist,
       ),
     );
   }

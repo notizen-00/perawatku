@@ -594,6 +594,10 @@ class _ServiceBookingOrderDetailPageState
                   value: _formatDateTime(booking.scheduledAt),
                 ),
                 _DetailRow(
+                  label: 'Lokasi kunjungan',
+                  value: _formatLocationType(booking.locationType),
+                ),
+                _DetailRow(
                   label: 'Diterima',
                   value: _formatDateTime(booking.acceptedAt),
                 ),
@@ -736,6 +740,12 @@ class _ServiceBookingOrderDetailPageState
               _FeeMessageSection(booking: booking, isDark: isDark),
               const SizedBox(height: 12),
             ],
+            if (booking.histories.isNotEmpty)
+              _TreatmentHistorySection(
+                histories: booking.histories,
+                isDark: isDark,
+                formatDateTime: _formatDateTime,
+              ),
           ],
         );
       }),
@@ -767,6 +777,14 @@ class _ServiceBookingOrderDetailPageState
     }
 
     return '${latitude.toStringAsFixed(6)}, ${longitude.toStringAsFixed(6)}';
+  }
+
+  String _formatLocationType(String? locationType) {
+    return switch (locationType) {
+      'hospital' => 'Rumah sakit',
+      'home' => 'Rumah pasien',
+      _ => '-',
+    };
   }
 
   String _formatVisitPlan(ServiceBookingEntity booking) {
@@ -1296,6 +1314,167 @@ class _FeeMessageList extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+/// Mirrors the mitra app's "Tambah Tindakan" entries so the patient sees
+/// exactly what treatment was recorded -- title, notes, checklist, and
+/// photo -- both apps read the same `histories` relation from the backend.
+class _TreatmentHistorySection extends StatelessWidget {
+  const _TreatmentHistorySection({
+    required this.histories,
+    required this.isDark,
+    required this.formatDateTime,
+  });
+
+  final List<ServiceBookingHistoryEntity> histories;
+  final bool isDark;
+  final String Function(String?) formatDateTime;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF12211F) : Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.fact_check_outlined, color: AppColors.primary),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Riwayat Penanganan',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            for (var index = 0; index < histories.length; index++)
+              _TreatmentHistoryItem(
+                history: histories[index],
+                isDark: isDark,
+                dateText: formatDateTime(histories[index].createdAt),
+                showDivider: index < histories.length - 1,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TreatmentHistoryItem extends StatelessWidget {
+  const _TreatmentHistoryItem({
+    required this.history,
+    required this.isDark,
+    required this.dateText,
+    required this.showDivider,
+  });
+
+  final ServiceBookingHistoryEntity history;
+  final bool isDark;
+  final String dateText;
+  final bool showDivider;
+
+  @override
+  Widget build(BuildContext context) {
+    final title = (history.title ?? '').trim().isEmpty
+        ? 'Riwayat pesanan'
+        : history.title!.trim();
+    final notes = (history.notes ?? '').trim();
+    final mutedColor = isDark ? AppColors.darkMutedText : AppColors.lightMutedText;
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: showDivider ? 12 : 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                ),
+              ),
+              if (dateText != '-')
+                Text(dateText, style: TextStyle(fontSize: 11, color: mutedColor)),
+            ],
+          ),
+          if (notes.isNotEmpty) ...[
+            const SizedBox(height: 3),
+            Text(notes, style: TextStyle(fontSize: 12, color: mutedColor)),
+          ],
+          if (history.checklist.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final item in history.checklist)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.check_circle_outline_rounded,
+                          size: 12,
+                          color: AppColors.primary,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          item,
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ],
+          if ((history.photoUrl ?? '').trim().isNotEmpty) ...[
+            const SizedBox(height: 8),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.network(
+                history.photoUrl!.trim(),
+                height: 140,
+                width: double.infinity,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Container(
+                  height: 140,
+                  alignment: Alignment.center,
+                  color: isDark ? const Color(0xFF1A2E2B) : const Color(0xFFF0F3F2),
+                  child: const Icon(Icons.broken_image_outlined),
+                ),
+              ),
+            ),
+          ],
+          if (showDivider) const Divider(height: 20),
+        ],
+      ),
     );
   }
 }

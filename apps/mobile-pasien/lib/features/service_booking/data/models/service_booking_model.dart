@@ -554,9 +554,13 @@ class ServiceBookingHistoryModel extends ServiceBookingHistoryEntity {
     required super.title,
     required super.notes,
     required super.createdAt,
+    required super.photoUrl,
+    required super.checklist,
   });
 
   factory ServiceBookingHistoryModel.fromJson(Map<String, dynamic> json) {
+    final checklist = json['checklist'];
+
     return ServiceBookingHistoryModel(
       id: ServiceBookingModel._readInt(json['id']),
       type: ServiceBookingModel._readString(
@@ -575,6 +579,10 @@ class ServiceBookingHistoryModel extends ServiceBookingHistoryEntity {
             json['updated_at'] ??
             json['timestamp'],
       ),
+      photoUrl: ServiceBookingModel._readString(json['photo_url']),
+      checklist: checklist is List
+          ? checklist.map((item) => item.toString()).toList()
+          : const <String>[],
     );
   }
 }

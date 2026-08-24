@@ -11,12 +11,16 @@ class AddServiceBookingHistory {
     required String title,
     required String description,
     required String treatmentType,
+    String? photoPath,
+    List<String>? checklist,
   }) {
     return repository.addServiceBookingHistory(
       id: id,
       title: title,
       description: description,
       treatmentType: treatmentType,
+      photoPath: photoPath,
+      checklist: checklist,
     );
   }
 }

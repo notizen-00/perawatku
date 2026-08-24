@@ -18,6 +18,13 @@ class OrderDetail extends Equatable {
     required this.etaMinutes,
     required this.paymentStatus,
     required this.histories,
+    required this.visitPlan,
+    required this.careMode,
+    required this.locationType,
+    required this.recurrence,
+    required this.visitCount,
+    required this.transportFee,
+    required this.mealFee,
   });
 
   final int id;
@@ -37,6 +44,26 @@ class OrderDetail extends Equatable {
   final String paymentStatus;
   final List<OrderHistory> histories;
 
+  /// `once` atau `recurring` -- lihat PRD-service-booking-terjadwal-dan-biaya.md.
+  final String visitPlan;
+
+  /// `visit` atau `live_in`.
+  final String careMode;
+
+  /// `home` atau `hospital`.
+  final String locationType;
+
+  /// `weekly`/`monthly`, hanya relevan kalau [visitPlan] == 'recurring'.
+  final String recurrence;
+  final int visitCount;
+  final double transportFee;
+  final double mealFee;
+
+  bool get isRecurring => visitPlan == 'recurring';
+  bool get isLiveIn => careMode == 'live_in';
+  bool get isHospitalVisit => locationType == 'hospital';
+  bool get hasExtraFees => transportFee > 0 || mealFee > 0;
+
   @override
   List<Object?> get props => [
     id,
@@ -55,6 +82,13 @@ class OrderDetail extends Equatable {
     etaMinutes,
     paymentStatus,
     histories,
+    visitPlan,
+    careMode,
+    locationType,
+    recurrence,
+    visitCount,
+    transportFee,
+    mealFee,
   ];
 }
 
@@ -65,6 +99,8 @@ class OrderHistory extends Equatable {
     required this.notes,
     required this.treatmentType,
     required this.createdAt,
+    required this.photoUrl,
+    required this.checklist,
   });
 
   final String title;
@@ -72,7 +108,17 @@ class OrderHistory extends Equatable {
   final String notes;
   final String treatmentType;
   final String createdAt;
+  final String? photoUrl;
+  final List<String> checklist;
 
   @override
-  List<Object?> get props => [title, status, notes, treatmentType, createdAt];
+  List<Object?> get props => [
+    title,
+    status,
+    notes,
+    treatmentType,
+    createdAt,
+    photoUrl,
+    checklist,
+  ];
 }

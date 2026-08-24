@@ -70,6 +70,25 @@ class OrderDetailTreatmentStarted extends OrderDetailEvent {
   List<Object?> get props => [id];
 }
 
+class OrderDetailTindakanAdded extends OrderDetailEvent {
+  const OrderDetailTindakanAdded({
+    required this.id,
+    required this.title,
+    required this.description,
+    required this.checklist,
+    this.photoPath,
+  });
+
+  final int id;
+  final String title;
+  final String description;
+  final List<String> checklist;
+  final String? photoPath;
+
+  @override
+  List<Object?> get props => [id, title, description, checklist, photoPath];
+}
+
 class OrderDetailCompleted extends OrderDetailEvent {
   const OrderDetailCompleted(this.id);
 

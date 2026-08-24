@@ -408,18 +408,38 @@ class ServiceBookingController extends Controller
         $validated = $request->validate([
             'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
+            'treatment_type' => ['nullable', 'string', 'max:100'],
             'handled_at' => ['nullable', 'date'],
             'meta' => ['nullable', 'array'],
+            'checklist' => ['nullable', 'array'],
+            'checklist.*' => ['string', 'max:255'],
+            'photo' => ['nullable', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
+
+        $photoPath = null;
+        if ($request->hasFile('photo')) {
+            $photoPath = $request->file('photo')->store(
+                "service-bookings/{$serviceBooking->id}/histories",
+                'public'
+            );
+        }
+
+        // A "tindakan" entry (photo and/or checklist attached) is classified as
+        // 'treatment' so the patient/mitra timeline can tell it apart from a
+        // plain status marker (arrival, etc.), which stays 'status'.
+        $isTreatmentEntry = $photoPath !== null || ! empty($validated['checklist']);
 
         $history = $this->recordHistory(
             $serviceBooking,
             $partner,
-            'status',
+            $isTreatmentEntry ? 'treatment' : 'status',
             $validated['title'],
             $validated['description'] ?? null,
             array_merge($validated['meta'] ?? [], ['status' => 'proses penanganan']),
-            isset($validated['handled_at']) ? Carbon::parse($validated['handled_at']) : now()
+            isset($validated['handled_at']) ? Carbon::parse($validated['handled_at']) : now(),
+            $validated['treatment_type'] ?? null,
+            $photoPath,
+            $validated['checklist'] ?? null
         );
 
         $history->load('actor');
@@ -842,15 +862,21 @@ class ServiceBookingController extends Controller
         string $title,
         ?string $description = null,
         ?array $meta = null,
-        mixed $handledAt = null
+        mixed $handledAt = null,
+        ?string $treatmentType = null,
+        ?string $photoPath = null,
+        ?array $checklist = null
     ): ServiceBookingHistory {
         return ServiceBookingHistory::create([
             'service_booking_id' => $serviceBooking->id,
             'actor_user_id' => $actor?->id,
             'type' => $type,
+            'treatment_type' => $treatmentType,
             'title' => $title,
             'description' => $description,
             'meta' => $meta,
+            'photo_path' => $photoPath,
+            'checklist' => $checklist,
             'handled_at' => $handledAt ?? now(),
         ]);
     }
