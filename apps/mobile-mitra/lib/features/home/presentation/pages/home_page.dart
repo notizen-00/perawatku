@@ -426,7 +426,7 @@ class _ActiveServiceCard extends StatelessWidget {
     final hasActiveService = service.status != 'idle';
 
     return MedicalCard(
-      onTap: hasActiveService ? () => context.go('/tracking') : null,
+      onTap: hasActiveService ? () => context.go('/orders/${service.id}') : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

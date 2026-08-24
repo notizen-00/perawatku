@@ -22,11 +22,13 @@ class TrackingCubit extends Cubit<TrackingState> {
   final AddServiceBookingHistory _addServiceBookingHistory;
   final CompleteServiceBooking _completeServiceBooking;
   final PartnerLocationSyncService _locationSyncService;
+  int? _bookingId;
 
-  Future<void> load() async {
+  Future<void> load({int? bookingId}) async {
+    _bookingId = bookingId ?? _bookingId;
     emit(const TrackingLoading());
     try {
-      final tracking = await _getActiveTracking();
+      final tracking = await _getActiveTracking(bookingId: _bookingId);
       if (tracking.status.toLowerCase() == 'on_the_way' &&
           !_hasHistory(tracking, 'arrival')) {
         _locationSyncService.startBookingLocationSync(tracking.id);

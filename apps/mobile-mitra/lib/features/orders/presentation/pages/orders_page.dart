@@ -471,7 +471,7 @@ class _OrderActions extends StatelessWidget {
           child: _CompactFilledButton(
             label: order.status == 'on_the_way' ? 'Peta' : 'Lihat Detail',
             onPressed: () => order.status == 'on_the_way'
-                ? context.go('/tracking')
+                ? context.go('/tracking/${order.id}')
                 : context.go('/orders/${order.id}'),
           ),
         ),

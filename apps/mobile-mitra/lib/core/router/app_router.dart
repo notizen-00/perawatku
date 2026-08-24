@@ -66,6 +66,13 @@ final appRouter = GoRouter(
       path: '/tracking',
       builder: (context, state) => const TrackingPage(),
     ),
+    GoRoute(
+      path: '/tracking/:id',
+      builder: (context, state) {
+        final id = int.tryParse(state.pathParameters['id'] ?? '');
+        return TrackingPage(bookingId: id);
+      },
+    ),
     GoRoute(path: '/wallet', builder: (context, state) => const WalletPage()),
     GoRoute(
       path: '/services',

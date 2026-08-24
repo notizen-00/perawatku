@@ -1,5 +1,5 @@
 import '../entities/active_tracking.dart';
 
 abstract class TrackingRepository {
-  Future<ActiveTracking> getActiveTracking();
+  Future<ActiveTracking> getActiveTracking({int? bookingId});
 }

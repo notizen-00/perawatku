@@ -13,8 +13,14 @@ class TrackingRepositoryImpl implements TrackingRepository {
   final AuthSession _session;
 
   @override
-  Future<ActiveTracking> getActiveTracking() async {
+  Future<ActiveTracking> getActiveTracking({int? bookingId}) async {
     try {
+      if (bookingId != null && bookingId > 0) {
+        final response = await _apiClient.get(ApiEndpoints.serviceBooking(bookingId));
+        final detail = jsonObject(response['data']) ?? response;
+        return _tracking(detail);
+      }
+
       final response = await _apiClient.get(
         ApiEndpoints.serviceBookings,
         queryParameters: {
@@ -97,7 +103,15 @@ class TrackingRepositoryImpl implements TrackingRepository {
       addressText: address?['address']?.toString() ?? '-',
       paymentStatus: payment?['status']?.toString() ?? 'unpaid',
       histories: _histories(booking['histories']),
+      patientLatitude: _nullableDouble(address?['latitude']),
+      patientLongitude: _nullableDouble(address?['longitude']),
     );
+  }
+
+  double? _nullableDouble(Object? value) {
+    if (value == null) return null;
+    if (value is num) return value.toDouble();
+    return double.tryParse(value.toString());
   }
 
   double _distanceKm(Map<String, dynamic> booking) {

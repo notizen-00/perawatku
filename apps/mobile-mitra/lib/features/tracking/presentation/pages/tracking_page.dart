@@ -1,6 +1,13 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../../../core/di/injection_container.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -12,12 +19,14 @@ import '../../domain/entities/active_tracking.dart';
 import '../cubit/tracking_cubit.dart';
 
 class TrackingPage extends StatelessWidget {
-  const TrackingPage({super.key});
+  const TrackingPage({super.key, this.bookingId});
+
+  final int? bookingId;
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (_) => sl<TrackingCubit>()..load(),
+      create: (_) => sl<TrackingCubit>()..load(bookingId: bookingId),
       child: const _TrackingView(),
     );
   }
@@ -30,37 +39,38 @@ class _TrackingView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
-      body: RefreshIndicator(
-        onRefresh: context.read<TrackingCubit>().load,
-        child: BlocBuilder<TrackingCubit, TrackingState>(
-          builder: (context, state) {
-            return switch (state) {
-              TrackingLoading() || TrackingInitial() => const _LoadingMap(),
-              TrackingError(:final message) => CustomScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  slivers: [
-                    const _TrackingAppBar(),
-                    SliverPadding(
-                      padding: AppSpacing.screen,
-                      sliver: SliverToBoxAdapter(
-                        child: ErrorCard(
-                          message: message,
-                          onRetry: context.read<TrackingCubit>().load,
-                        ),
-                      ),
+      appBar: const _TrackingAppBar(),
+      body: BlocBuilder<TrackingCubit, TrackingState>(
+        builder: (context, state) {
+          return switch (state) {
+            TrackingLoading() || TrackingInitial() => const _LoadingMap(),
+            TrackingError(:final message) => RefreshIndicator(
+                onRefresh: context.read<TrackingCubit>().load,
+                child: ListView(
+                  padding: AppSpacing.screen,
+                  children: [
+                    ErrorCard(
+                      message: message,
+                      onRetry: context.read<TrackingCubit>().load,
                     ),
                   ],
                 ),
-              TrackingLoaded(:final tracking) => _TrackingMap(tracking: tracking),
-              _ => const _UnknownState(),
-            };
-          },
-        ),
+              ),
+            TrackingLoaded(:final tracking) => _TrackingMap(tracking: tracking),
+            _ => const _UnknownState(),
+          };
+        },
       ),
     );
   }
 }
 
+// A real, interactive map needs tight/bounded layout constraints straight
+// from the Scaffold body. Putting it inside a CustomScrollView/sliver (as
+// this page did before) makes SliverFillRemaining query the map's intrinsic
+// height, and flutter_map's internal LayoutBuilder explicitly rejects
+// intrinsic-dimension queries -- hence why the app bar lives on Scaffold.appBar
+// instead of as a SliverAppBar, and this is a plain Stack, not a sliver.
 class _TrackingMap extends StatelessWidget {
   const _TrackingMap({required this.tracking});
 
@@ -68,43 +78,33 @@ class _TrackingMap extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CustomScrollView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      slivers: [
-        const _TrackingAppBar(),
-        SliverFillRemaining(
-          hasScrollBody: false,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              CustomPaint(painter: _LiveMapPainter()),
-              Positioned(
-                left: AppSpacing.mobileMargin,
-                right: AppSpacing.mobileMargin,
-                top: AppSpacing.md,
-                child: _StatusCard(tracking: tracking),
-              ),
-              Positioned(
-                left: AppSpacing.mobileMargin,
-                right: AppSpacing.mobileMargin,
-                bottom: AppSpacing.lg,
-                child: _NavigationCard(tracking: tracking),
-              ),
-            ],
-          ),
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        _OsmLiveMap(tracking: tracking),
+        Positioned(
+          left: AppSpacing.mobileMargin,
+          right: AppSpacing.mobileMargin,
+          top: AppSpacing.md,
+          child: _StatusCard(tracking: tracking),
+        ),
+        Positioned(
+          left: AppSpacing.mobileMargin,
+          right: AppSpacing.mobileMargin,
+          bottom: AppSpacing.lg,
+          child: _NavigationCard(tracking: tracking),
         ),
       ],
     );
   }
 }
 
-class _TrackingAppBar extends StatelessWidget {
+class _TrackingAppBar extends StatelessWidget implements PreferredSizeWidget {
   const _TrackingAppBar();
 
   @override
   Widget build(BuildContext context) {
-    return SliverAppBar(
-      pinned: true,
+    return AppBar(
       elevation: 0,
       surfaceTintColor: Colors.transparent,
       backgroundColor: Theme.of(context).colorScheme.surface,
@@ -127,6 +127,9 @@ class _TrackingAppBar extends StatelessWidget {
       ],
     );
   }
+
+  @override
+  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
 }
 
 class _StatusCard extends StatelessWidget {
@@ -281,20 +284,15 @@ class _LoadingMap extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CustomScrollView(
-      slivers: [
-        const _TrackingAppBar(),
-        SliverPadding(
-          padding: AppSpacing.screen,
-          sliver: SliverList.list(
-            children: const [
-              CardSkeleton(height: 88),
-              SizedBox(height: AppSpacing.md),
-              CardSkeleton(height: 460),
-            ],
-          ),
-        ),
-      ],
+    return SingleChildScrollView(
+      padding: AppSpacing.screen,
+      child: const Column(
+        children: [
+          CardSkeleton(height: 88),
+          SizedBox(height: AppSpacing.md),
+          CardSkeleton(height: 460),
+        ],
+      ),
     );
   }
 }
@@ -304,83 +302,329 @@ class _UnknownState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const CustomScrollView(
-      slivers: [
-        _TrackingAppBar(),
-        SliverPadding(
-          padding: AppSpacing.screen,
-          sliver: SliverToBoxAdapter(
-            child: ErrorCard(message: 'State tracking tidak dikenali.'),
+    return const Padding(
+      padding: AppSpacing.screen,
+      child: ErrorCard(message: 'State tracking tidak dikenali.'),
+    );
+  }
+}
+
+/// Real, live-updating map rendered with free OpenStreetMap tiles.
+/// The mitra marker follows the device GPS stream directly (no polling),
+/// while the patient marker comes from the booking's saved address
+/// coordinates.
+class _OsmLiveMap extends StatefulWidget {
+  const _OsmLiveMap({required this.tracking});
+
+  final ActiveTracking tracking;
+
+  @override
+  State<_OsmLiveMap> createState() => _OsmLiveMapState();
+}
+
+class _OsmLiveMapState extends State<_OsmLiveMap> {
+  static const _fallbackCenter = LatLng(-6.200000, 106.816666);
+
+  /// Below this, the last fetched road route is still close enough to the
+  /// mitra's new position that re-fetching isn't worth the extra request.
+  static const _routeRefetchThresholdMeters = 40;
+
+  final MapController _mapController = MapController();
+  StreamSubscription<Position>? _positionSubscription;
+  LatLng? _mitraPosition;
+  String? _locationError;
+  bool _hasCentered = false;
+
+  List<LatLng>? _routePoints;
+  LatLng? _routeFetchedFrom;
+  bool _isFetchingRoute = false;
+
+  LatLng? get _patientPosition => widget.tracking.hasPatientLocation
+      ? LatLng(widget.tracking.patientLatitude!, widget.tracking.patientLongitude!)
+      : null;
+
+  @override
+  void initState() {
+    super.initState();
+    _startLocationStream();
+  }
+
+  @override
+  void dispose() {
+    _positionSubscription?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _startLocationStream() async {
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      _setLocationError('Aktifkan layanan lokasi untuk live tracking.');
+      return;
+    }
+
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      _setLocationError('Izin lokasi ditolak. Aktifkan untuk live tracking.');
+      return;
+    }
+
+    try {
+      final current = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+      );
+      _onPosition(current);
+    } catch (_) {
+      // Fall through to the stream below; it will retry on its own.
+    }
+
+    _positionSubscription = Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 5,
+      ),
+    ).listen(_onPosition);
+  }
+
+  void _setLocationError(String message) {
+    if (!mounted) return;
+    setState(() => _locationError = message);
+  }
+
+  void _onPosition(Position position) {
+    if (!mounted) return;
+    setState(() {
+      _mitraPosition = LatLng(position.latitude, position.longitude);
+      _locationError = null;
+    });
+
+    if (!_hasCentered) {
+      _hasCentered = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _fitBounds());
+    }
+
+    _maybeFetchRoute();
+  }
+
+  /// Fetches the actual road path from OSRM's free public routing API
+  /// (no API key) instead of drawing a straight line between mitra and
+  /// patient. Re-fetches only when the mitra has moved far enough from
+  /// where the last route was drawn from, so a normal GPS update stream
+  /// (every ~5m) doesn't hammer the public server.
+  void _maybeFetchRoute() {
+    final mitra = _mitraPosition;
+    final patient = _patientPosition;
+    if (mitra == null || patient == null || _isFetchingRoute) return;
+
+    final lastOrigin = _routeFetchedFrom;
+    if (lastOrigin != null &&
+        Geolocator.distanceBetween(
+              lastOrigin.latitude,
+              lastOrigin.longitude,
+              mitra.latitude,
+              mitra.longitude,
+            ) <
+            _routeRefetchThresholdMeters) {
+      return;
+    }
+
+    _fetchRoute(mitra, patient);
+  }
+
+  Future<void> _fetchRoute(LatLng from, LatLng to) async {
+    _isFetchingRoute = true;
+    final client = HttpClient();
+    try {
+      final uri = Uri.parse(
+        'https://router.project-osrm.org/route/v1/driving/'
+        '${from.longitude},${from.latitude};${to.longitude},${to.latitude}'
+        '?overview=full&geometries=geojson',
+      );
+      final request = await client.getUrl(uri).timeout(const Duration(seconds: 10));
+      final response = await request.close().timeout(const Duration(seconds: 10));
+      final body = await response.transform(utf8.decoder).join();
+
+      if (response.statusCode != 200) return;
+
+      final decoded = jsonDecode(body);
+      if (decoded is! Map<String, dynamic> || decoded['code'] != 'Ok') return;
+
+      final routes = decoded['routes'];
+      if (routes is! List || routes.isEmpty) return;
+
+      final geometry = (routes.first as Map<String, dynamic>)['geometry'];
+      final coordinates = geometry is Map<String, dynamic> ? geometry['coordinates'] : null;
+      if (coordinates is! List || coordinates.isEmpty) return;
+
+      final points = coordinates
+          .whereType<List<dynamic>>()
+          .where((point) => point.length >= 2)
+          .map((point) => LatLng((point[1] as num).toDouble(), (point[0] as num).toDouble()))
+          .toList();
+
+      if (!mounted || points.isEmpty) return;
+      setState(() {
+        _routePoints = points;
+        _routeFetchedFrom = from;
+      });
+    } catch (_) {
+      // OSRM's free demo server can be flaky/rate-limited -- the map just
+      // keeps drawing the straight line between mitra and patient instead.
+    } finally {
+      _isFetchingRoute = false;
+      client.close(force: true);
+    }
+  }
+
+  void _fitBounds() {
+    final mitra = _mitraPosition;
+    final patient = _patientPosition;
+    if (mitra == null) return;
+
+    if (patient == null) {
+      _mapController.move(mitra, 15);
+      return;
+    }
+
+    _mapController.fitCamera(
+      CameraFit.bounds(
+        bounds: LatLngBounds.fromPoints([mitra, patient]),
+        padding: const EdgeInsets.fromLTRB(56, 140, 56, 240),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final mitra = _mitraPosition;
+    final patient = _patientPosition;
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        FlutterMap(
+          mapController: _mapController,
+          options: MapOptions(
+            initialCenter: mitra ?? patient ?? _fallbackCenter,
+            initialZoom: 15,
           ),
+          children: [
+            TileLayer(
+              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              userAgentPackageName: 'com.perawatku.mitra',
+            ),
+            if (mitra != null && patient != null)
+              PolylineLayer(
+                polylines: [
+                  Polyline(
+                    points: _routePoints ?? [mitra, patient],
+                    strokeWidth: 4,
+                    color: AppColors.secondary,
+                  ),
+                ],
+              ),
+            MarkerLayer(
+              markers: [
+                if (mitra != null)
+                  Marker(
+                    point: mitra,
+                    width: 42,
+                    height: 42,
+                    child: const _MapPin(color: AppColors.primary, icon: Icons.motorcycle_rounded),
+                  ),
+                if (patient != null)
+                  Marker(
+                    point: patient,
+                    width: 42,
+                    height: 42,
+                    child: const _MapPin(color: AppColors.error, icon: Icons.person_pin_circle_rounded),
+                  ),
+              ],
+            ),
+            RichAttributionWidget(
+              attributions: [TextSourceAttribution('OpenStreetMap contributors')],
+            ),
+          ],
         ),
+        if (mitra == null)
+          Positioned(
+            left: AppSpacing.mobileMargin,
+            right: AppSpacing.mobileMargin,
+            top: AppSpacing.md + 88,
+            child: _MapNoticeBanner(
+              message: _locationError ?? 'Mencari lokasi GPS Anda...',
+              isError: _locationError != null,
+            ),
+          ),
       ],
     );
   }
 }
 
-class _LiveMapPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    canvas.drawRect(Offset.zero & size, Paint()..color = const Color(0xFFE8F1F7));
+class _MapPin extends StatelessWidget {
+  const _MapPin({required this.color, required this.icon});
 
-    final road = Paint()
-      ..color = const Color(0xFFBFD3DF)
-      ..strokeWidth = 16
-      ..strokeCap = StrokeCap.round;
-    final thinRoad = Paint()
-      ..color = const Color(0xFFD5E1E9)
-      ..strokeWidth = 8
-      ..strokeCap = StrokeCap.round;
-    final route = Paint()
-      ..color = AppColors.secondary
-      ..strokeWidth = 5
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    canvas.drawLine(
-      Offset(-20, size.height * 0.68),
-      Offset(size.width + 20, size.height * 0.28),
-      road,
-    );
-    canvas.drawLine(
-      Offset(size.width * 0.16, -20),
-      Offset(size.width * 0.84, size.height + 20),
-      thinRoad,
-    );
-    canvas.drawLine(
-      Offset(-20, size.height * 0.36),
-      Offset(size.width * 0.92, size.height * 0.88),
-      thinRoad,
-    );
-
-    final path = Path()
-      ..moveTo(size.width * 0.18, size.height * 0.72)
-      ..quadraticBezierTo(
-        size.width * 0.42,
-        size.height * 0.48,
-        size.width * 0.58,
-        size.height * 0.56,
-      )
-      ..quadraticBezierTo(
-        size.width * 0.78,
-        size.height * 0.66,
-        size.width * 0.84,
-        size.height * 0.34,
-      );
-    canvas.drawPath(path, route);
-
-    _pin(canvas, Offset(size.width * 0.18, size.height * 0.72), AppColors.primary);
-    _pin(canvas, Offset(size.width * 0.84, size.height * 0.34), AppColors.error);
-  }
-
-  void _pin(Canvas canvas, Offset center, Color color) {
-    canvas.drawCircle(center, 18, Paint()..color = color.withValues(alpha: 0.18));
-    canvas.drawCircle(center, 9, Paint()..color = color);
-    canvas.drawCircle(center, 3, Paint()..color = Colors.white);
-  }
+  final Color color;
+  final IconData icon;
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white, width: 3),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.35),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Icon(icon, color: Colors.white, size: 20),
+    );
+  }
+}
+
+class _MapNoticeBanner extends StatelessWidget {
+  const _MapNoticeBanner({required this.message, required this.isError});
+
+  final String message;
+  final bool isError;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: (isError ? AppColors.error : Colors.black87).withValues(alpha: 0.85),
+        borderRadius: AppRadius.control,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isError ? Icons.location_disabled_rounded : Icons.gps_fixed_rounded,
+              color: Colors.white,
+              size: 16,
+            ),
+            const SizedBox(width: AppSpacing.xs),
+            Flexible(
+              child: Text(
+                message,
+                style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 enum _TrackingAction {

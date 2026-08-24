@@ -98,6 +98,7 @@ class HomeSummary extends Equatable {
 
 class ActiveService extends Equatable {
   const ActiveService({
+    required this.id,
     required this.title,
     required this.status,
     required this.patientName,
@@ -105,6 +106,7 @@ class ActiveService extends Equatable {
     required this.distanceKm,
   });
 
+  final int id;
   final String title;
   final String status;
   final String patientName;
@@ -112,7 +114,7 @@ class ActiveService extends Equatable {
   final double distanceKm;
 
   @override
-  List<Object?> get props => [title, status, patientName, etaMinutes, distanceKm];
+  List<Object?> get props => [id, title, status, patientName, etaMinutes, distanceKm];
 }
 
 class PartnerOrder extends Equatable {

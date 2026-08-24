@@ -18,6 +18,8 @@ class ActiveTracking extends Equatable {
     required this.addressText,
     required this.paymentStatus,
     required this.histories,
+    this.patientLatitude,
+    this.patientLongitude,
   });
 
   final int id;
@@ -36,6 +38,13 @@ class ActiveTracking extends Equatable {
   final String addressText;
   final String paymentStatus;
   final List<TrackingHistory> histories;
+  final double? patientLatitude;
+  final double? patientLongitude;
+
+  bool get hasPatientLocation =>
+      patientLatitude != null &&
+      patientLongitude != null &&
+      (patientLatitude != 0 || patientLongitude != 0);
 
   bool get hasActiveService => status != 'idle';
 
@@ -57,6 +66,8 @@ class ActiveTracking extends Equatable {
     addressText,
     paymentStatus,
     histories,
+    patientLatitude,
+    patientLongitude,
   ];
 }
 

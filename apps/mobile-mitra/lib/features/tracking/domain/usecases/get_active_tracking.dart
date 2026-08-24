@@ -6,5 +6,6 @@ class GetActiveTracking {
 
   final TrackingRepository repository;
 
-  Future<ActiveTracking> call() => repository.getActiveTracking();
+  Future<ActiveTracking> call({int? bookingId}) =>
+      repository.getActiveTracking(bookingId: bookingId);
 }

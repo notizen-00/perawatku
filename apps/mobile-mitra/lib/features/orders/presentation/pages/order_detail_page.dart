@@ -350,7 +350,7 @@ class _AddressCard extends StatelessWidget {
             ),
           ),
           IconButton(
-            onPressed: () => context.go('/tracking'),
+            onPressed: () => context.go('/tracking/${order.id}'),
             icon: const Icon(Icons.map_outlined),
           ),
         ],
@@ -591,7 +591,7 @@ class _BottomAction extends StatelessWidget {
                   child: SizedBox(
                     height: 48,
                     child: OutlinedButton.icon(
-                      onPressed: () => context.go('/tracking'),
+                      onPressed: () => context.go('/tracking/${order.id}'),
                       icon: const Icon(Icons.map_outlined),
                       label: const Text('Buka Peta'),
                     ),

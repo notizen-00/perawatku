@@ -86,6 +86,7 @@ class HomeRepositoryImpl implements HomeRepository {
 
     if (booking == null) {
       return const ActiveService(
+        id: 0,
         title: 'Belum ada layanan aktif',
         status: 'idle',
         patientName: 'Menunggu order baru',
@@ -95,6 +96,7 @@ class HomeRepositoryImpl implements HomeRepository {
     }
 
     return ActiveService(
+      id: _asInt(booking['id']),
       title: _serviceName(booking),
       status: booking['status']?.toString() ?? 'pending',
       patientName: _patientName(booking),
