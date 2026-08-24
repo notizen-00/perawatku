@@ -3,7 +3,7 @@ enum ApiEnvironment { production, docker, laragon }
 class ApiConfig {
   const ApiConfig._();
 
-  static const ApiEnvironment environment = ApiEnvironment.laragon;
+  static const ApiEnvironment environment = ApiEnvironment.production;
 
   static String get baseUrl {
     return switch (environment) {
