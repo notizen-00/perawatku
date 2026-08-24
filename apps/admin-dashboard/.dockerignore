@@ -1,0 +1,11 @@
+.git
+.github
+.nuxt
+.output
+node_modules
+.env
+.env.*
+npm-debug.log
+pnpm-debug.log
+yarn-error.log
+*.local

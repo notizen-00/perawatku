@@ -1,0 +1,103 @@
+# Docker (Laravel)
+
+## Start
+
+```bash
+cp .env.docker.example .env
+docker compose up -d --build
+```
+
+App URL: `http://localhost:8081`
+
+Vite dev server (optional): `http://localhost:5173`
+
+Adminer (DB inspector): `http://localhost:8082` (System: `PostgreSQL`, Server: `db`, user: `medic`, pass: `medic`, database: `medic_app`)
+
+Service `node` otomatis jalanin `npm ci|npm install` dan `npm run build` (sekali, kalau `public/build/manifest.json` belum ada) sebelum `npm run dev`.
+
+Kalau browser kamu kebuka ke `http://0.0.0.0:5173/...` itu akan error (`ERR_ADDRESS_INVALID`). Pakai `http://localhost:5173` (sudah diforce via `vite.config.js` + `VITE_DEV_SERVER_URL`).
+
+## First-time setup
+
+Saat container `app` pertama kali jalan, entrypoint akan otomatis:
+- `composer install`
+- `php artisan key:generate`
+- `php artisan storage:link`
+- `php artisan migrate:fresh --seed`
+- clear cache (`config/cache/view`)
+
+Kalau kamu tidak mau auto-reset database, set `DOCKER_RUN_MIGRATIONS=false` di service `app` dan `reverb` pada `docker-compose.yml`.
+
+Service `app`, `reverb`, dan `adminer` menunggu healthcheck `db`/`redis` sebelum start. Ini mencegah error awal seperti `SQLSTATE[08006] connection refused` saat Reverb membaca cache atau Laravel bootstrap terlalu cepat.
+
+## Database
+
+Database-nya PostgreSQL (image `postgres:16-alpine`, service `db`), bukan MySQL.
+Kalau kamu punya migration baru yang menulis raw SQL (`DB::statement(...)`),
+jangan pakai sintaks MySQL-only (`MODIFY`, `UPDATE ... INNER JOIN ... SET`,
+backtick identifier) tanpa guard per-driver -- lihat catatan di
+[README_TESTING_FEATURE.md](README_TESTING_FEATURE.md#catatan-migration-sqlite--postgresql).
+
+**Kalau sebelumnya kamu sudah pernah `docker compose up` di project ini
+sebelum migrasi ke PostgreSQL**, volume `db_data` masih berisi data MySQL
+lama dan tidak kompatibel dengan direktori data PostgreSQL (container `db`
+akan gagal start). Data dev boleh dibuang -- hapus volume lama sekali saja:
+
+```bash
+docker compose down
+docker volume rm backend_db_data   # sesuaikan nama volume, cek: docker volume ls
+docker compose up -d --build
+```
+
+## Reverb (WebSocket)
+
+```bash
+docker compose up -d reverb
+```
+
+Expose: `ws://localhost:8080`
+
+Image PHP menginstall ekstensi `pcntl` karena Laravel Reverb membutuhkan signal constants seperti `SIGINT` dan `SIGTERM` di Linux container.
+
+Di Docker, service `app` dan `reverb` dioverride agar broadcast benar-benar memakai Reverb:
+
+```env
+BROADCAST_CONNECTION=reverb
+CACHE_STORE=redis
+REVERB_APP_ID=medic-app
+REVERB_APP_KEY=medic-app-key
+REVERB_APP_SECRET=medic-app-secret
+REVERB_HOST=reverb
+REVERB_PORT=8080
+REVERB_SCHEME=http
+```
+
+Halaman test mitra tersedia di:
+
+`http://localhost:8081/mitra/login`
+
+Gunakan halaman itu untuk login mitra, subscribe ke private channel booking, menerima notifikasi matchmaking, melihat presence online users, dan test tombol accept booking.
+
+Jika production memakai Nginx Proxy Manager, aktifkan `Websockets Support` pada proxy host domain backend. Domain HTTPS tetap forward ke Docker nginx `8081`; browser tidak perlu langsung akses port Reverb `8080`.
+
+Alur production:
+
+```text
+Browser wss://backend.perawatku.tech/app/...
+-> Nginx Proxy Manager
+-> Docker nginx 127.0.0.1:8081
+-> service reverb:8080
+```
+
+Contoh konfigurasi tambahan proxy production ada di:
+
+`docker/nginx/reverb-production-proxy.conf.example`
+
+## Useful commands
+
+```bash
+docker compose exec app php artisan tinker
+docker compose exec app php artisan queue:work
+docker compose logs -f nginx app reverb
+docker compose exec app php artisan optimize:clear
+```

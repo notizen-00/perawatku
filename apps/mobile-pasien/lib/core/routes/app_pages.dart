@@ -1,0 +1,110 @@
+import 'package:get/get.dart';
+
+import '../../features/auth/presentation/bindings/auth_binding.dart';
+import '../../features/auth/presentation/pages/login_page.dart';
+import '../../features/auth/presentation/pages/onboarding_page.dart';
+import '../../features/auth/presentation/pages/profile_completion_page.dart';
+import '../../features/auth/presentation/pages/register_page.dart';
+import '../../features/doctor/presentation/bindings/doctor_chat_binding.dart';
+import '../../features/doctor/presentation/bindings/doctor_binding.dart';
+import '../../features/doctor/presentation/pages/doctor_consultation_page.dart';
+import '../../features/doctor/presentation/pages/doctor_chat_page.dart';
+import '../../features/doctor/presentation/pages/doctor_page.dart';
+import '../../features/home/presentation/home_page.dart';
+import '../../features/home/screen/search_page.dart';
+import '../../features/map/presentation/bindings/map_binding.dart';
+import '../../features/map/presentation/pages/map_page.dart';
+import '../../features/nurse/presentation/bindings/nurse_binding.dart';
+import '../../features/nurse/presentation/pages/nurse_page.dart';
+import '../../features/notification/presentation/pages/notification_page.dart';
+import '../../features/patient_member/presentation/pages/patient_member_page.dart';
+import '../../features/service_booking/presentation/bindings/service_booking_binding.dart';
+import '../../features/service_booking/presentation/pages/service_booking_checkout_page.dart';
+import '../../features/service_booking/presentation/pages/service_booking_detail_page.dart';
+import '../../features/service_booking/presentation/pages/service_booking_patient_picker_page.dart';
+import '../../features/service_booking/presentation/pages/service_detail_page.dart';
+import 'app_routes.dart';
+
+class AppPages {
+  AppPages._();
+
+  static final routes = <GetPage>[
+    GetPage(
+      name: AppRoutes.onboarding,
+      page: () => const OnboardingPage(),
+    ),
+    GetPage(
+      name: AppRoutes.login,
+      page: () => const LoginPage(),
+      binding: AuthBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.register,
+      page: () => const RegisterPage(),
+      binding: AuthBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.profileCompletion,
+      page: () => const ProfileCompletionPage(),
+      binding: AuthBinding(),
+    ),
+    GetPage(name: AppRoutes.home, page: () => MedicHomePage()),
+    GetPage(name: AppRoutes.search, page: () => SearchPage()),
+    GetPage(
+      name: AppRoutes.notifications,
+      page: () => const NotificationPage(),
+    ),
+    GetPage(
+      name: AppRoutes.nurses,
+      page: () => const NursePage(),
+      binding: NurseBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.serviceDetail,
+      page: () => const ServiceDetailPage(),
+    ),
+    GetPage(
+      name: AppRoutes.serviceBookingCheckout,
+      page: () => const ServiceBookingCheckoutPage(),
+      binding: ServiceBookingBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.serviceBookingPatientPicker,
+      page: () => const ServiceBookingPatientPickerPage(),
+    ),
+    GetPage(
+      name: AppRoutes.serviceBookingDetail,
+      page: () => const ServiceBookingDetailPage(),
+      binding: ServiceBookingBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.serviceBookingOrderDetail,
+      page: () => const ServiceBookingOrderDetailPage(),
+      binding: ServiceBookingBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.doctors,
+      page: () => const DoctorPage(),
+      binding: DoctorBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.patientMembers,
+      page: () => const PatientMemberPage(),
+    ),
+    GetPage(
+      name: AppRoutes.doctorConsultation,
+      page: () => const DoctorConsultationPage(),
+      binding: DoctorChatBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.doctorChat,
+      page: () => const DoctorChatPage(),
+      binding: DoctorChatBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.map,
+      page: () => const MapPage(),
+      binding: MapBinding(),
+    ),
+  ];
+}

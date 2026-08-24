@@ -1,0 +1,42 @@
+{
+    "terminal.integrated.profiles.windows": {
+        "PowerShell": {
+            "source": "PowerShell",
+            "icon": "terminal-powershell"
+        },
+        "Command Prompt": {
+            "path": [
+                "${env:windir}\\Sysnative\\cmd.exe",
+                "${env:windir}\\System32\\cmd.exe"
+            ],
+            "args": [],
+            "icon": "terminal-cmd"
+        },
+        "Git Bash": {
+            "source": "Git Bash"
+        },
+      "laragon": {
+      "path": "${env:windir}\\System32\\cmd.exe",
+      "args": ["/k", "C:\\laragon\\bin\\cmder\\vendor\\bin\\vscode_init.cmd"]
+}
+    },
+    "terminal.integrated.defaultProfile.windows": "laragon",
+
+    "dart.flutterSdkPath": "C:\\Users\\TIK\\dev\\flutter",
+    "dart.projectSearchDepth": 6,
+
+    "search.exclude": {
+        "**/vendor": true,
+        "**/node_modules": true,
+        "**/.dart_tool": true,
+        "apps/mobile-mitra/build": true,
+        "apps/mobile-pasien/build": true
+    },
+    "files.watcherExclude": {
+        "**/vendor/**": true,
+        "**/node_modules/**": true,
+        "**/.dart_tool/**": true,
+        "apps/mobile-mitra/build/**": true,
+        "apps/mobile-pasien/build/**": true
+    }
+}

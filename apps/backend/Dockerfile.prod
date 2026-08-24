@@ -1,0 +1,88 @@
+# Production image for the Laravel backend.
+#
+# Unlike Dockerfile (dev image; source is bind-mounted and dependencies are
+# installed at container start by docker/entrypoint.sh), this image bakes the
+# application code, PHP dependencies and built frontend assets in at build
+# time so the container needs nothing but a database/redis connection to run.
+#
+# Build from the repo root:
+#   docker build -f apps/backend/Dockerfile.prod -t perawatku-backend:latest apps/backend
+
+FROM node:20-alpine AS assets
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
+FROM php:8.4-fpm-bookworm AS app
+WORKDIR /var/www/html
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        git \
+        unzip \
+        rsync \
+        libzip-dev \
+        libicu-dev \
+        libpq-dev \
+        libpng-dev \
+        libjpeg62-turbo-dev \
+        libfreetype6-dev \
+        libonig-dev \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install -j"$(nproc)" \
+        bcmath \
+        exif \
+        gd \
+        intl \
+        mbstring \
+        opcache \
+        pcntl \
+        pdo_pgsql \
+        zip \
+    && pecl install redis \
+    && docker-php-ext-enable redis \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+COPY docker/php/conf.d/99-app.ini /usr/local/etc/php/conf.d/99-app.ini
+
+# Install PHP deps first so this layer is only invalidated by composer.lock,
+# not by every source change. --no-autoloader/--no-scripts because the app
+# code (and thus the post-autoload-dump `package:discover` hook) isn't
+# copied in yet.
+COPY composer.json composer.lock ./
+RUN composer install \
+    --no-dev \
+    --no-scripts \
+    --no-autoloader \
+    --no-interaction \
+    --prefer-dist
+
+COPY --chown=www-data:www-data . .
+COPY --from=assets --chown=www-data:www-data /app/public/build ./public/build
+
+RUN composer dump-autoload --no-dev --optimize \
+    && php artisan package:discover --ansi
+
+# `public/` is shared with the nginx container through a named volume (see
+# deploy/docker-compose.prod.yml), and Docker only auto-populates a volume
+# from the image the *first* time it's mounted -- on later deploys, an image
+# rebuilt with new hashed asset filenames wouldn't otherwise reach the
+# volume. Keep a pristine copy outside the mount path so the entrypoint can
+# re-sync it into the volume on every boot.
+RUN mkdir -p /opt/app-public-dist && cp -a public/. /opt/app-public-dist/
+
+RUN mkdir -p storage/framework/views storage/framework/cache/data storage/framework/sessions storage/framework/testing \
+        bootstrap/cache \
+    && chown -R www-data:www-data storage bootstrap/cache \
+    && chmod -R 775 storage bootstrap/cache
+
+COPY docker/entrypoint.prod.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+USER www-data
+
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["php-fpm"]
