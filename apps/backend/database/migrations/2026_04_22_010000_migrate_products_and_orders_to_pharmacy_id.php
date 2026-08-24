@@ -57,7 +57,7 @@ return new class extends Migration
         if (! $this->isSqlite() && Schema::hasTable('products') && Schema::hasColumn('products', 'pharmacy_user_id')) {
             $this->dropForeignKeyByColumn('products', 'pharmacy_user_id');
             $this->dropIndexIfExists('products', 'products_pharmacy_user_id_is_active_index');
-            $this->dropIndexIfExists('products', 'products_pharmacy_user_id_sku_unique');
+            $this->dropUniqueIfExists('products', 'products_pharmacy_user_id_sku_unique');
 
             Schema::table('products', function (Blueprint $table) {
                 $table->dropColumn('pharmacy_user_id');
@@ -123,7 +123,7 @@ return new class extends Migration
 
         if (Schema::hasTable('products') && Schema::hasColumn('products', 'pharmacy_id')) {
             $this->dropForeignKeyByColumn('products', 'pharmacy_id');
-            $this->dropIndexIfExists('products', 'products_pharmacy_id_sku_unique');
+            $this->dropUniqueIfExists('products', 'products_pharmacy_id_sku_unique');
             $this->dropIndexIfExists('products', 'products_pharmacy_id_is_active_index');
 
             Schema::table('products', function (Blueprint $table) {
@@ -151,6 +151,21 @@ return new class extends Migration
         if ($this->hasIndex($table, $indexName)) {
             Schema::table($table, function (Blueprint $table) use ($indexName) {
                 $table->dropIndex($indexName);
+            });
+        }
+    }
+
+    /**
+     * Unlike dropIndexIfExists(), this drops an index that backs a UNIQUE
+     * constraint. On Postgres, DROP INDEX fails for those with "Dependent
+     * objects still exist" -- the constraint must be dropped instead, which
+     * is what Blueprint::dropUnique() does (ALTER TABLE ... DROP CONSTRAINT).
+     */
+    private function dropUniqueIfExists(string $table, string $indexName): void
+    {
+        if ($this->hasIndex($table, $indexName)) {
+            Schema::table($table, function (Blueprint $table) use ($indexName) {
+                $table->dropUnique($indexName);
             });
         }
     }
