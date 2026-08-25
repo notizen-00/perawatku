@@ -113,6 +113,7 @@ class _CompleteProfileViewState extends State<_CompleteProfileView> {
                               label: 'Spesialisasi',
                               icon: Icons.medical_information_outlined,
                               enabled: !submitting,
+                              required: false,
                             ),
                             const SizedBox(height: AppSpacing.md),
                             _Field(
@@ -120,6 +121,7 @@ class _CompleteProfileViewState extends State<_CompleteProfileView> {
                               label: 'Nomor STR/SIP',
                               icon: Icons.verified_user_outlined,
                               enabled: !submitting,
+                              required: false,
                             ),
                             const SizedBox(height: AppSpacing.md),
                             _Field(
@@ -205,8 +207,8 @@ class _CompleteProfileViewState extends State<_CompleteProfileView> {
     if (!_formKey.currentState!.validate()) return;
 
     context.read<CompleteProfileCubit>().submit(
-      specialization: _specializationController.text.trim(),
-      licenseNumber: _licenseNumberController.text.trim(),
+      specialization: _emptyToNull(_specializationController.text),
+      licenseNumber: _emptyToNull(_licenseNumberController.text),
       workLocation: _emptyToNull(_workLocationController.text),
       yearsOfExperience: int.tryParse(_experienceController.text.trim()),
       consultationFee: double.tryParse(_feeController.text.trim()),

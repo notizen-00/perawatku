@@ -942,12 +942,6 @@ class _TextField extends StatelessWidget {
       controller: controller,
       keyboardType: keyboardType,
       maxLines: maxLines,
-      validator: (value) {
-        if ((value ?? '').trim().isEmpty && label != 'Bio') {
-          return '$label wajib diisi';
-        }
-        return null;
-      },
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: Icon(icon),
