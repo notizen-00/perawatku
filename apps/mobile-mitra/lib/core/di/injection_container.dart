@@ -56,6 +56,7 @@ import '../../features/profile/presentation/cubit/profile_cubit.dart';
 import '../../features/services/data/repositories/partner_services_repository_impl.dart';
 import '../../features/services/domain/repositories/partner_services_repository.dart';
 import '../../features/services/domain/usecases/get_partner_services.dart';
+import '../../features/services/domain/usecases/update_partner_service.dart';
 import '../../features/services/presentation/cubit/partner_services_cubit.dart';
 import '../../features/tracking/data/repositories/tracking_repository_impl.dart';
 import '../../features/tracking/domain/repositories/tracking_repository.dart';
@@ -231,7 +232,15 @@ Future<void> init() async {
   sl.registerLazySingleton(
     () => GetPartnerServices(sl<PartnerServicesRepository>()),
   );
-  sl.registerFactory(() => PartnerServicesCubit(sl<GetPartnerServices>()));
+  sl.registerLazySingleton(
+    () => UpdatePartnerService(sl<PartnerServicesRepository>()),
+  );
+  sl.registerFactory(
+    () => PartnerServicesCubit(
+      sl<GetPartnerServices>(),
+      sl<UpdatePartnerService>(),
+    ),
+  );
 
   sl.registerLazySingleton<TrackingRepository>(
     () => TrackingRepositoryImpl(sl<ApiClient>(), sl<AuthSession>()),
