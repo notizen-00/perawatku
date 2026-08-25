@@ -12,7 +12,6 @@ use App\Models\ServiceBooking;
 use App\Models\ServiceBookingHistory;
 use App\Models\User;
 use App\Services\AppNotificationService;
-use App\Services\BalanceService;
 use App\Services\ServiceBookingFeeCalculator;
 use App\Services\ServicePartnerSelectionService;
 use Carbon\Carbon;
@@ -24,7 +23,6 @@ use Illuminate\Validation\ValidationException;
 class ServiceBookingController extends Controller
 {
     public function __construct(
-        private readonly BalanceService $balanceService,
         private readonly AppNotificationService $notifications,
         private readonly ServicePartnerSelectionService $servicePartnerSelectionService,
         private readonly ServiceBookingFeeCalculator $feeCalculator
@@ -554,25 +552,10 @@ class ServiceBookingController extends Controller
                 ['status' => 'completed']
             );
 
-            $partnerPayoutAmount = $lockedBooking->partnerPayoutAmount();
-
-            if ($partnerPayoutAmount > 0 && $lockedBooking->partner_balance_transaction_id === null) {
-                $balance = $this->balanceService->getOrCreateBalance($partner);
-                $transaction = $this->balanceService->credit($balance, $partnerPayoutAmount, [
-                    'reference_type' => 'service_booking',
-                    'reference_id' => $lockedBooking->id,
-                    'booking_code' => $lockedBooking->booking_code,
-                    'patient_paid_amount' => (float) $lockedBooking->total_amount,
-                    'partner_payout_amount' => $partnerPayoutAmount,
-                    'idempotency_key' => 'service_booking:'.$lockedBooking->id.':partner_payout',
-                    'description' => 'Pendapatan layanan '.$lockedBooking->booking_code,
-                ]);
-
-                $lockedBooking->update([
-                    'partner_paid_at' => now(),
-                    'partner_balance_transaction_id' => $transaction->id,
-                ]);
-            }
+            // Saldo mitra sengaja TIDAK langsung dicairkan di sini. Payout baru
+            // dibuat ketika pasien mengonfirmasi/mereview penanganan lewat
+            // Patient\ServiceBookingController::confirmCompletion(), sehingga
+            // saldo tetap berstatus pending sampai pasien menyetujui.
 
             return $lockedBooking;
         });
@@ -584,7 +567,7 @@ class ServiceBookingController extends Controller
         $this->notifications->send($serviceBooking->patient_user_id, [
             'type' => 'service_booking.completed',
             'title' => 'Pesanan layanan selesai',
-            'body' => 'Pesanan layanan '.$serviceBooking->booking_code.' telah diselesaikan.',
+            'body' => 'Pesanan layanan '.$serviceBooking->booking_code.' telah diselesaikan. Mohon konfirmasi agar saldo mitra dapat diproses.',
             'action_url' => '/patient/service-bookings/'.$serviceBooking->id,
             'reference_type' => 'service_booking',
             'reference_id' => $serviceBooking->id,
@@ -597,7 +580,7 @@ class ServiceBookingController extends Controller
         ]);
 
         return response()->json([
-            'message' => 'Pesanan layanan berhasil diselesaikan dan saldo mitra diperbarui.',
+            'message' => 'Pesanan layanan berhasil diselesaikan. Saldo akan diproses setelah pasien mengonfirmasi.',
             'data' => $serviceBooking,
         ]);
     }

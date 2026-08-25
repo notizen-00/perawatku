@@ -8,7 +8,7 @@ use App\Models\User;
 use App\Events\ServiceBookingMatched;
 use Laravel\Sanctum\Sanctum;
 
-it('credits mitra with service base payout instead of patient markup total when mitra completes booking', function () {
+it('keeps mitra payout pending until patient confirms, then credits the service base payout instead of patient markup total', function () {
     $patient = User::factory()->create(['role' => 'pasien']);
     $partner = User::factory()->create(['role' => 'mitra']);
 
@@ -68,12 +68,29 @@ it('credits mitra with service base payout instead of patient markup total when 
         'summary' => 'Layanan selesai.',
     ])->assertOk()
         ->assertJsonPath('data.status', 'completed')
+        ->assertJsonPath('data.partner_balance_transaction', null);
+
+    // Mitra menandai selesai saja belum mencairkan saldo — masih pending
+    // sampai pasien mengonfirmasi/mereview penanganannya.
+    $this->assertDatabaseMissing('user_balances', [
+        'user_id' => $partner->id,
+        'balance' => 225000,
+    ]);
+    expect(ServiceBooking::find($booking->id)->partner_balance_transaction_id)->toBeNull();
+
+    Sanctum::actingAs($patient);
+
+    $this->patchJson("/api/patient/service-bookings/{$booking->id}/confirm-completion", [
+        'notes' => 'Layanan sudah sesuai, saya konfirmasi selesai.',
+    ])->assertOk()
+        ->assertJsonPath('data.status', 'completed')
         ->assertJsonPath('data.partner_balance_transaction.amount', '225000.00');
 
     $this->assertDatabaseHas('user_balances', [
         'user_id' => $partner->id,
         'balance' => 225000,
     ]);
+    expect(ServiceBooking::find($booking->id)->partner_balance_transaction_id)->not->toBeNull();
 });
 
 it('broadcasts mitra matched booking amount as base payout plus operational fees instead of patient markup total', function () {
