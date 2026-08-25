@@ -18,6 +18,8 @@ class CompleteProfileCubit extends Cubit<CompleteProfileState> {
     int? yearsOfExperience,
     double? consultationFee,
     String? bio,
+    String? strPhotoPath,
+    String? ktpPhotoPath,
   }) async {
     emit(const CompleteProfileSubmitting());
 
@@ -29,6 +31,8 @@ class CompleteProfileCubit extends Cubit<CompleteProfileState> {
         yearsOfExperience: yearsOfExperience,
         consultationFee: consultationFee,
         bio: bio,
+        strPhotoPath: strPhotoPath,
+        ktpPhotoPath: ktpPhotoPath,
       );
       emit(const CompleteProfileSuccess());
     } on Failure catch (error) {

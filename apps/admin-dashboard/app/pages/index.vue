@@ -5,6 +5,15 @@ import type { Range } from '~/types'
 
 const { isNotificationsSlideoverOpen } = useDashboard()
 
+const { data: unreadRes, refresh: refreshUnreadCount } = await useFetch<any>(
+  '/api/shared/notifications/unread-count'
+)
+const unreadCount = computed(() => unreadRes.value?.data?.unread_count ?? 0)
+
+watch(isNotificationsSlideoverOpen, (open) => {
+  if (!open) refreshUnreadCount()
+})
+
 const items = [[{
   label: 'Mitra menunggu verifikasi',
   icon: 'i-lucide-user-check',
@@ -37,7 +46,7 @@ const range = shallowRef<Range>({
               square
               @click="isNotificationsSlideoverOpen = true"
             >
-              <UChip color="error" inset>
+              <UChip color="error" :show="unreadCount > 0" inset>
                 <UIcon name="i-lucide-bell" class="size-5 shrink-0" />
               </UChip>
             </UButton>

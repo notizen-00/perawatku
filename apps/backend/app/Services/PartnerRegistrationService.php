@@ -12,6 +12,11 @@ use Illuminate\Support\Facades\Hash;
 
 class PartnerRegistrationService
 {
+    public function __construct(
+        private readonly AppNotificationService $notifications
+    ) {
+    }
+
     public function registerDoctor(array $payload): User
     {
         if (! isset($payload['profession'])) {
@@ -25,7 +30,7 @@ class PartnerRegistrationService
     {
         $profession = $payload['profession'] ?? 'dokter';
 
-        return DB::transaction(function () use ($payload, $profession) {
+        $user = DB::transaction(function () use ($payload, $profession) {
             $user = User::create([
                 'name' => $payload['name'],
                 'email' => $payload['email'],
@@ -73,6 +78,31 @@ class PartnerRegistrationService
             ]);
 
             return $user->load('partnerProfile');
+        });
+
+        $this->notifyAdminsOfNewMitra($user);
+
+        return $user;
+    }
+
+    private function notifyAdminsOfNewMitra(User $user): void
+    {
+        $profession = $user->partnerProfile?->profession ?? '-';
+
+        User::query()->where('role', 'admin')->each(function (User $admin) use ($user, $profession) {
+            $this->notifications->send($admin, [
+                'type' => 'mitra.registered',
+                'title' => 'Pendaftaran mitra baru',
+                'body' => "{$user->name} ({$profession}) mendaftar dan menunggu verifikasi.",
+                'action_url' => '/partners/'.$user->id,
+                'reference_type' => 'user',
+                'reference_id' => $user->id,
+                'data' => [
+                    'user_id' => $user->id,
+                    'name' => $user->name,
+                    'profession' => $profession,
+                ],
+            ]);
         });
     }
 

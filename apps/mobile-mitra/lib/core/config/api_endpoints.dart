@@ -11,6 +11,7 @@ class ApiEndpoints {
   static const profilePhoto = '/shared/profile-photo';
   static const mitraProfile = '/mitra/profile';
   static const serviceApplications = '/mitra/service-applications';
+  static const serviceCatalog = '/mitra/services';
   static const serviceBookings = '/mitra/service-bookings';
   static const consultations = '/mitra/consultations';
   static const notifications = '/shared/notifications';

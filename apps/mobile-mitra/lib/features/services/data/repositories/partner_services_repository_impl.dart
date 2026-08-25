@@ -3,6 +3,7 @@ import '../../../../core/errors/failures.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/utils/json_helpers.dart';
 import '../../domain/entities/partner_service.dart';
+import '../../domain/entities/service_catalog_item.dart';
 import '../../domain/repositories/partner_services_repository.dart';
 
 class PartnerServicesRepositoryImpl implements PartnerServicesRepository {
@@ -48,6 +49,45 @@ class PartnerServicesRepositoryImpl implements PartnerServicesRepository {
     } on ApiException catch (error) {
       throw ServerFailure(error.message);
     }
+  }
+
+  @override
+  Future<List<ServiceCatalogItem>> getCatalog({String? search}) async {
+    try {
+      final response = await _apiClient.get(
+        ApiEndpoints.serviceCatalog,
+        queryParameters: {
+          'per_page': 50,
+          if (search != null && search.isNotEmpty) 'search': search,
+        },
+      );
+      return jsonList(response).map(_catalogItem).toList();
+    } on ApiException catch (error) {
+      throw ServerFailure(error.message);
+    }
+  }
+
+  @override
+  Future<void> applyForService(int serviceId) async {
+    try {
+      await _apiClient.post(
+        ApiEndpoints.serviceApplications,
+        body: {'service_id': serviceId},
+      );
+    } on ApiException catch (error) {
+      throw ServerFailure(error.message);
+    }
+  }
+
+  ServiceCatalogItem _catalogItem(Map<String, dynamic> json) {
+    return ServiceCatalogItem(
+      id: asInt(json['id']),
+      name: json['name']?.toString() ?? 'Layanan',
+      serviceType: json['service_type']?.toString() ?? '',
+      serviceMode: json['service_mode']?.toString() ?? 'visit',
+      basePrice: asDouble(json['base_price']),
+      alreadyApplied: json['already_applied'] == true,
+    );
   }
 
   PartnerService _service(Map<String, dynamic> json) {

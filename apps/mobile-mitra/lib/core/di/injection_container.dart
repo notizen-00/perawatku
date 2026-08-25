@@ -55,9 +55,12 @@ import '../../features/profile/domain/usecases/update_partner_availability.dart'
 import '../../features/profile/presentation/cubit/profile_cubit.dart';
 import '../../features/services/data/repositories/partner_services_repository_impl.dart';
 import '../../features/services/domain/repositories/partner_services_repository.dart';
+import '../../features/services/domain/usecases/apply_for_service.dart';
 import '../../features/services/domain/usecases/get_partner_services.dart';
+import '../../features/services/domain/usecases/get_service_catalog.dart';
 import '../../features/services/domain/usecases/update_partner_service.dart';
 import '../../features/services/presentation/cubit/partner_services_cubit.dart';
+import '../../features/services/presentation/cubit/service_catalog_cubit.dart';
 import '../../features/tracking/data/repositories/tracking_repository_impl.dart';
 import '../../features/tracking/domain/repositories/tracking_repository.dart';
 import '../../features/tracking/domain/usecases/get_active_tracking.dart';
@@ -239,6 +242,18 @@ Future<void> init() async {
     () => PartnerServicesCubit(
       sl<GetPartnerServices>(),
       sl<UpdatePartnerService>(),
+    ),
+  );
+  sl.registerLazySingleton(
+    () => GetServiceCatalog(sl<PartnerServicesRepository>()),
+  );
+  sl.registerLazySingleton(
+    () => ApplyForService(sl<PartnerServicesRepository>()),
+  );
+  sl.registerFactory(
+    () => ServiceCatalogCubit(
+      sl<GetServiceCatalog>(),
+      sl<ApplyForService>(),
     ),
   );
 

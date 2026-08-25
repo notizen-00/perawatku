@@ -13,6 +13,7 @@ import '../../features/notifications/presentation/pages/notifications_page.dart'
 import '../../features/orders/presentation/pages/order_detail_page.dart';
 import '../../features/orders/presentation/pages/orders_page.dart';
 import '../../features/services/presentation/pages/partner_services_page.dart';
+import '../../features/services/presentation/pages/service_catalog_page.dart';
 import '../../features/stitch_ui/presentation/pages/mockup_hub_page.dart';
 import '../../features/stitch_ui/presentation/pages/stitch_pages.dart';
 import '../../features/tracking/presentation/pages/tracking_page.dart';
@@ -90,6 +91,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/services',
       builder: (context, state) => const PartnerServicesPage(),
+    ),
+    GoRoute(
+      path: '/services/catalog',
+      builder: (context, state) => const ServiceCatalogPage(),
     ),
     GoRoute(path: '/profile', builder: (context, state) => const AccountPage()),
     GoRoute(path: '/login', builder: (context, state) => const LoginPage()),

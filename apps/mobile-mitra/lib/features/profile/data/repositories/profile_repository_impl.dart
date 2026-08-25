@@ -50,20 +50,45 @@ class ProfileRepositoryImpl implements ProfileRepository {
     int? yearsOfExperience,
     double? consultationFee,
     String? bio,
+    String? strPhotoPath,
+    String? ktpPhotoPath,
   }) async {
     try {
-      await _apiClient.patch(
+      if (strPhotoPath == null && ktpPhotoPath == null) {
+        await _apiClient.patch(
+          ApiEndpoints.mitraProfile,
+          body: {
+            if (specialization != null && specialization.isNotEmpty)
+              'specialization': specialization,
+            if (licenseNumber != null && licenseNumber.isNotEmpty)
+              'license_number': licenseNumber,
+            if (workLocation != null && workLocation.isNotEmpty)
+              'work_location': workLocation,
+            if (yearsOfExperience != null) 'years_of_experience': yearsOfExperience,
+            if (consultationFee != null) 'consultation_fee': consultationFee,
+            if (bio != null && bio.isNotEmpty) 'bio': bio,
+          },
+        );
+        return;
+      }
+
+      await _apiClient.patchMultipart(
         ApiEndpoints.mitraProfile,
-        body: {
+        fields: {
           if (specialization != null && specialization.isNotEmpty)
             'specialization': specialization,
           if (licenseNumber != null && licenseNumber.isNotEmpty)
             'license_number': licenseNumber,
           if (workLocation != null && workLocation.isNotEmpty)
             'work_location': workLocation,
-          if (yearsOfExperience != null) 'years_of_experience': yearsOfExperience,
-          if (consultationFee != null) 'consultation_fee': consultationFee,
+          if (yearsOfExperience != null)
+            'years_of_experience': yearsOfExperience.toString(),
+          if (consultationFee != null) 'consultation_fee': consultationFee.toString(),
           if (bio != null && bio.isNotEmpty) 'bio': bio,
+        },
+        files: {
+          if (strPhotoPath != null) 'str_photo': strPhotoPath,
+          if (ktpPhotoPath != null) 'ktp_photo': ktpPhotoPath,
         },
       );
     } on ApiException catch (error) {

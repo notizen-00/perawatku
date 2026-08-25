@@ -15,5 +15,7 @@ abstract class ProfileRepository {
     int? yearsOfExperience,
     double? consultationFee,
     String? bio,
+    String? strPhotoPath,
+    String? ktpPhotoPath,
   });
 }

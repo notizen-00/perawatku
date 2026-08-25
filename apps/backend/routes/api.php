@@ -214,6 +214,8 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::patch('/availability', 'toggleAvailability');
         });
 
+        Route::get('/services', [PartnerServiceController::class, 'catalog']);
+
         Route::prefix('service-applications')->controller(PartnerServiceController::class)->group(function () {
             Route::get('/', 'index');
             Route::post('/', 'store');

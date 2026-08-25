@@ -126,10 +126,13 @@ class ProfileController extends Controller
 
     private function storePartnerDocument(int $userId, UploadedFile $file, string $documentType): string
     {
+        // Must match the 'private' disk PartnerDocumentController::show reads
+        // from -- storing on 'public' here would silently make the document
+        // unviewable to admin (path saved, but never found on read).
         $extension = strtolower($file->getClientOriginalExtension() ?: 'jpg');
         $path = "partners/{$userId}/{$documentType}.{$extension}";
 
-        Storage::disk('public')->putFileAs("partners/{$userId}", $file, "{$documentType}.{$extension}");
+        Storage::disk('private')->putFileAs("partners/{$userId}", $file, "{$documentType}.{$extension}");
 
         return $path;
     }

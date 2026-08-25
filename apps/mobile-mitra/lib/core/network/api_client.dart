@@ -235,6 +235,108 @@ class ApiClient {
     }
   }
 
+  /// Multipart PATCH with one or more named files (e.g. `str_photo` +
+  /// `ktp_photo` together). PHP never populates the request body for a real
+  /// multipart PUT/PATCH, so this sends a POST with Laravel's `_method`
+  /// override field instead -- the standard way to submit files to a PATCH
+  /// route.
+  Future<Map<String, dynamic>> patchMultipart(
+    String path, {
+    Map<String, String>? fields,
+    Map<String, String>? files,
+  }) async {
+    final uri = Uri.parse('${ApiConfig.apiBaseUrl}$path');
+    final boundary = '----mitra-perawatku-${DateTime.now().microsecondsSinceEpoch}';
+
+    try {
+      final request = await _httpClient
+          .postUrl(uri)
+          .timeout(const Duration(seconds: 20));
+
+      for (final header in _session.headers.entries) {
+        if (header.key.toLowerCase() != 'content-type') {
+          request.headers.set(header.key, header.value);
+        }
+      }
+      request.headers.set(
+        HttpHeaders.contentTypeHeader,
+        'multipart/form-data; boundary=$boundary',
+      );
+
+      void writeField(String name, String value) {
+        request.write('--$boundary\r\n');
+        request.write(
+          'Content-Disposition: form-data; name="$name"\r\n\r\n',
+        );
+        request.write('$value\r\n');
+      }
+
+      writeField('_method', 'PATCH');
+      for (final entry in (fields ?? const <String, String>{}).entries) {
+        writeField(entry.key, entry.value);
+      }
+
+      for (final entry in (files ?? const <String, String>{}).entries) {
+        final file = File(entry.value);
+        final fileName = file.uri.pathSegments.isEmpty
+            ? 'upload.jpg'
+            : file.uri.pathSegments.last;
+        request.write('--$boundary\r\n');
+        request.write(
+          'Content-Disposition: form-data; name="${entry.key}"; filename="$fileName"\r\n',
+        );
+        request.write('Content-Type: ${_contentType(fileName)}\r\n\r\n');
+        await request.addStream(file.openRead());
+        request.write('\r\n');
+      }
+
+      request.write('--$boundary--\r\n');
+
+      final response = await request.close().timeout(
+        const Duration(seconds: 45),
+      );
+      final payload = await response.transform(utf8.decoder).join();
+      final decoded = payload.isEmpty
+          ? <String, dynamic>{}
+          : jsonDecode(payload);
+
+      if (decoded is! Map<String, dynamic>) {
+        throw ApiException(
+          statusCode: response.statusCode,
+          message: 'Format respons server tidak dikenali.',
+        );
+      }
+
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        if (response.statusCode == 401) {
+          await _session.clear();
+        }
+
+        throw ApiException(
+          statusCode: response.statusCode,
+          message: _extractMessage(decoded),
+          errors: decoded['errors'],
+        );
+      }
+
+      return decoded;
+    } on ApiException {
+      rethrow;
+    } on SocketException catch (error) {
+      throw ApiException(statusCode: 0, message: error.message);
+    } on TimeoutException {
+      throw const ApiException(
+        statusCode: 0,
+        message: 'Koneksi ke server terlalu lama.',
+      );
+    } on FormatException {
+      throw const ApiException(
+        statusCode: 0,
+        message: 'Respons server bukan JSON valid.',
+      );
+    }
+  }
+
   Future<Map<String, dynamic>> _request({
     required String method,
     required String path,

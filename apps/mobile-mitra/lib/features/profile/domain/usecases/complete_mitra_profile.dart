@@ -12,6 +12,8 @@ class CompleteMitraProfile {
     int? yearsOfExperience,
     double? consultationFee,
     String? bio,
+    String? strPhotoPath,
+    String? ktpPhotoPath,
   }) {
     return repository.completeProfile(
       specialization: specialization,
@@ -20,6 +22,8 @@ class CompleteMitraProfile {
       yearsOfExperience: yearsOfExperience,
       consultationFee: consultationFee,
       bio: bio,
+      strPhotoPath: strPhotoPath,
+      ktpPhotoPath: ktpPhotoPath,
     );
   }
 }

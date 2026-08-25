@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/injection_container.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -26,24 +27,53 @@ class PartnerServicesPage extends StatelessWidget {
             title: 'Layanan',
             activeIndex: 3,
             onRefresh: context.read<PartnerServicesCubit>().load,
-            child: switch (state) {
-              PartnerServicesLoading() || PartnerServicesInitial() => const _Loading(),
-              PartnerServicesError(:final message) => ErrorCard(
-                message: message,
-                onRetry: context.read<PartnerServicesCubit>().load,
-              ),
-              PartnerServicesLoaded(:final services) when services.isEmpty =>
-                const _EmptyState(),
-              PartnerServicesLoaded(:final services) => Column(
-                children: [
-                  for (final service in services)
-                    _ServiceCard(service: service),
-                ],
-              ),
-              _ => const ErrorCard(message: 'State layanan tidak dikenali.'),
-            },
+            child: Column(
+              children: [
+                _ApplyServiceButton(
+                  onServiceApplied: context.read<PartnerServicesCubit>().load,
+                ),
+                const SizedBox(height: AppSpacing.md),
+                switch (state) {
+                  PartnerServicesLoading() || PartnerServicesInitial() => const _Loading(),
+                  PartnerServicesError(:final message) => ErrorCard(
+                    message: message,
+                    onRetry: context.read<PartnerServicesCubit>().load,
+                  ),
+                  PartnerServicesLoaded(:final services) when services.isEmpty =>
+                    const _EmptyState(),
+                  PartnerServicesLoaded(:final services) => Column(
+                    children: [
+                      for (final service in services)
+                        _ServiceCard(service: service),
+                    ],
+                  ),
+                  _ => const ErrorCard(message: 'State layanan tidak dikenali.'),
+                },
+              ],
+            ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _ApplyServiceButton extends StatelessWidget {
+  const _ApplyServiceButton({required this.onServiceApplied});
+
+  final Future<void> Function() onServiceApplied;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: () async {
+          await context.push('/services/catalog');
+          await onServiceApplied();
+        },
+        icon: const Icon(Icons.add_rounded),
+        label: const Text('Ajukan Layanan Baru'),
       ),
     );
   }

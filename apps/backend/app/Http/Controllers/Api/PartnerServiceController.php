@@ -7,12 +7,66 @@ use App\Models\PartnerProfile;
 use App\Models\PartnerService;
 use App\Models\Service;
 use App\Models\User;
+use App\Services\AppNotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
 class PartnerServiceController extends Controller
 {
+    public function __construct(
+        private readonly AppNotificationService $notifications
+    ) {
+    }
+
+    /**
+     * Katalog layanan yang bisa diajukan mitra, difilter sesuai profesi
+     * (lihat ensureServiceMatchesProfession untuk aturan yang sama).
+     */
+    public function catalog(Request $request): JsonResponse
+    {
+        $partner = $this->resolveAuthenticatedMedicalPartner($request);
+
+        $validated = $request->validate([
+            'search' => ['nullable', 'string', 'max:100'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+        ]);
+
+        $allowedServiceTypes = match ($partner->partnerProfile->profession) {
+            'dokter' => ['dokter_homecare', 'konsultasi_tindakan'],
+            'perawat' => ['perawat_homecare', 'konsultasi_tindakan'],
+            'bidan' => ['bidan_homecare', 'konsultasi_tindakan'],
+            default => [],
+        };
+
+        $appliedServiceIds = PartnerService::query()
+            ->where('partner_user_id', $partner->id)
+            ->pluck('service_id');
+
+        $services = Service::query()
+            ->where('is_active', true)
+            ->whereIn('service_type', $allowedServiceTypes)
+            ->when(
+                $validated['search'] ?? null,
+                fn ($query, $search) => $query->where('name', 'like', "%{$search}%")
+            )
+            ->orderBy('sort_order')
+            ->paginate($this->resolvePerPage($request))
+            ->withQueryString();
+
+        $services->getCollection()->each(
+            fn (Service $service) => $service->setAttribute(
+                'already_applied',
+                $appliedServiceIds->contains($service->id)
+            )
+        );
+
+        return response()->json([
+            'message' => 'Katalog layanan untuk mitra berhasil diambil.',
+            'data' => $services,
+        ]);
+    }
+
     public function index(Request $request): JsonResponse
     {
         $partner = $this->resolveAuthenticatedMedicalPartner($request);
@@ -69,10 +123,32 @@ class PartnerServiceController extends Controller
         $application->load(['service', 'partner.partnerProfile']);
         $this->normalizePartnerVisiblePrice($application);
 
+        $this->notifyAdminsOfNewApplication($partner, $service, $application);
+
         return response()->json([
             'message' => 'Pengajuan layanan mitra berhasil dibuat dan menunggu verifikasi admin.',
             'data' => $application,
         ], 201);
+    }
+
+    private function notifyAdminsOfNewApplication(User $partner, Service $service, PartnerService $application): void
+    {
+        User::query()->where('role', 'admin')->each(function (User $admin) use ($partner, $service, $application) {
+            $this->notifications->send($admin, [
+                'type' => 'partner_service.applied',
+                'title' => 'Pengajuan layanan mitra baru',
+                'body' => "{$partner->name} mengajukan layanan \"{$service->name}\" dan menunggu verifikasi.",
+                'action_url' => '/partners/'.$partner->id,
+                'reference_type' => 'partner_service',
+                'reference_id' => $application->id,
+                'data' => [
+                    'partner_user_id' => $partner->id,
+                    'partner_name' => $partner->name,
+                    'service_id' => $service->id,
+                    'service_name' => $service->name,
+                ],
+            ]);
+        });
     }
 
     public function update(Request $request, PartnerService $partnerService): JsonResponse
