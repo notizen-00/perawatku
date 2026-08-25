@@ -75,7 +75,7 @@ services:
     ports:
       # Temporary: exposes Postgres to the internet for pgAdmin access.
       # Remove this once external DB access is no longer needed.
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
     healthcheck:
